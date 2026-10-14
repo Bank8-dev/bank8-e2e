@@ -1,0 +1,22 @@
+<svg viewBox="0 0 64 64"
+     xmlns="http://www.w3.org/2000/svg">
+
+  <!-- Square background (optional, white) -->
+  <rect x="0" y="0" width="64" height="64" fill="white" />
+
+  <!-- Lowercase i -->
+  <text x="0" y="60"
+        font-family="Arial, sans-serif"
+        font-size="80"
+        fill="red">
+    i
+  </text>
+
+  <!-- Capital B -->
+  <text x="15" y="60"
+        font-family="Arial, sans-serif"
+        font-size="80"
+        fill="red">
+    T
+  </text>
+</svg>

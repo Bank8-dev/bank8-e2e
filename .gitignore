@@ -1,0 +1,17 @@
+# Node
+node_modules/
+.cache/
+dist/
+
+# Playwright outputs
+test-results/
+playwright-report/
+blob-report/
+.playwright/
+.tmp/
+
+# Cross-suite state (run artifacts, never committed)
+.e2e-state.json
+
+# Local environment (never commit secrets)
+.env

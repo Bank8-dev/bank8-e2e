@@ -1,0 +1,25 @@
+{
+  "name": "bank8-e2e",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Bank8 vertical end-to-end test suites (TypeScript + official Playwright).",
+  "type": "module",
+  "engines": {
+    "node": ">=20"
+  },
+  "scripts": {
+    "test": "playwright test --max-failures=1 tests/bank8_lifecycle.spec.ts",
+    "test:protocol": "playwright test tests/protocol/",
+    "test:lifecycle": "playwright test tests/bank8_lifecycle.spec.ts",
+    "test:suite4": "playwright test tests/protocol/suite4_tenant_auth_flows.spec.ts",
+    "test:suite6": "playwright test tests/protocol/suite6_tenant_resolution_enforcement.spec.ts",
+    "test:suite8": "playwright test tests/protocol/suite8_token_exchange.spec.ts",
+    "install-browsers": "playwright install chromium",
+    "lint": "tsc --noEmit"
+  },
+  "devDependencies": {
+    "@playwright/test": "^1.49.0",
+    "@types/node": "^22.10.0",
+    "typescript": "^5.7.2"
+  }
+}

@@ -1,0 +1,20 @@
+<svg width="240" height="70" viewBox="0 0 240 70" xmlns="http://www.w3.org/2000/svg">
+  <style>
+    .i-dot { transition: fill 0.3s ease; }
+    .i-bar { transition: fill 0.3s ease; }
+    svg:hover .i-dot { fill: #4DA3FF; }
+    svg:hover .i-bar { fill: #4DA3FF; }
+  </style>
+
+  <!-- Icon: "i" -->
+  <circle class="i-dot" cx="40" cy="22" r="8" fill="#1E6BFF" />
+  <rect class="i-bar" x="37" y="32" width="6" height="24" rx="3" fill="#1E6BFF" />
+
+  <!-- Text: iBank -->
+  <text x="70" y="60"
+        font-family="Segoe UI, sans-serif"
+        font-size="64"
+        fill="#003366">
+    iBank
+  </text>
+</svg>
