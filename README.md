@@ -3,19 +3,19 @@
 # SPDX-FileCopyrightText: Copyright Contributors to the Bank8:E2E
 # SPDX-License-Identifier: Apache-2.0
 
-# bank8-e2e — Playwright TypeScript end-to-end suite
+# bank8-e2e - Playwright TypeScript end-to-end suite
 
 > The bank8 vertical's proof that the product works for the person using
-> it: a real browser, a real sign-up, a real org — with the same
+> it: a real browser, a real sign-up, a real org - with the same
 > restrictions a user has. Built on the official **@playwright/test**
 > runner.
 
 The suite drives **only the four bank8 tenant apps** (bank8-admin,
 bank8-ebank, bank8-efintech, bank8-eteller) through the browser and the
-BFF8 proxy — platform setup happens in `tests/global-setup.ts` via the
+BFF8 proxy - platform setup happens in `tests/global-setup.ts` via the
 **sentin8-cli** binary, and Dash flows live in the platform's own e2e
 repo (`sentin8-e2e`). Per `AGENTS.md`, e2e **never touches the database
-directly** — no psql, no backdoor API access from the UI suites.
+directly** - no psql, no backdoor API access from the UI suites.
 
 ## Suites
 
@@ -26,7 +26,7 @@ directly** — no psql, no backdoor API access from the UI suites.
 | Tenant resolution | `tests/protocol/suite6_tenant_resolution_enforcement.spec.ts` | HTTP-only: cross-tenant isolation, host resolution, 401 on cross-tenant. |
 | Token exchange | `tests/protocol/suite8_token_exchange.spec.ts` | HTTP-only: RFC 8693 token-exchange protocol behavior. |
 
-## Tenancy model — where every URL comes from
+## Tenancy model - where every URL comes from
 
 All URLs the suite touches are **tenant org/env** URLs, derived from the
 run's personas (`fixtures/testdata.ts`):
@@ -47,13 +47,13 @@ issuer checks.
 
 ## Prerequisites
 
-1. **A running bank8 + platform stack** — from the tree root:
+1. **A running bank8 + platform stack** - from the tree root:
    ```bash
    make infra-up && make start          # platform group: infra + services
    cd bank8 && make start               # vertical: enrolled services + apps
    ```
 2. **Node 20+ and a package manager** (npm or pnpm).
-3. **Local CA trust** — `scripts/with-ca.sh` installs the Sentin8 local
+3. **Local CA trust** - `scripts/with-ca.sh` installs the Sentin8 local
    root CA into the trust store and exports `NODE_EXTRA_CA_CERTS` before
    launching the runner (Node's bundled store ignores the system store).
 
@@ -91,34 +91,34 @@ override), `PLAYWRIGHT_MAX_FAILURES=0` (disable failfast).
 bank8-e2e/
 ├── package.json / tsconfig.json / playwright.config.ts
 ├── fixtures/
-│   ├── testdata.ts    — tenant-first URL helpers + personas + listing payloads
-│   ├── state.ts       — cross-suite state via .e2e-state.json
-│   ├── harness.ts     — Flutter semantics helpers, tenant sign-in/up flows
-│   ├── apiclient.ts   — direct HTTP client (local CA)
-│   ├── cli.ts         — sentin8-cli subprocess runner + setup call helpers
-│   ├── strictpage.ts  — console-error / HTTP-error assertions
-│   └── index.ts       — barrel export
+│   ├── testdata.ts    - tenant-first URL helpers + personas + listing payloads
+│   ├── state.ts       - cross-suite state via .e2e-state.json
+│   ├── harness.ts     - Flutter semantics helpers, tenant sign-in/up flows
+│   ├── apiclient.ts   - direct HTTP client (local CA)
+│   ├── cli.ts         - sentin8-cli subprocess runner + setup call helpers
+│   ├── strictpage.ts  - console-error / HTTP-error assertions
+│   └── index.ts       - barrel export
 ├── scripts/
-│   └── with-ca.sh     — CA trust wrapper
+│   └── with-ca.sh     - CA trust wrapper
 └── tests/
-    ├── global-setup.ts          — platform setup via sentin8-cli (once per run)
-    ├── bank8_lifecycle.spec.ts  — the serial UI lifecycle
-    └── protocol/                — HTTP-only suites (4/6/8)
+    ├── global-setup.ts          - platform setup via sentin8-cli (once per run)
+    ├── bank8_lifecycle.spec.ts  - the serial UI lifecycle
+    └── protocol/                - HTTP-only suites (4/6/8)
 ```
 
 ## The read-your-writes rule
 
 Every mutation test asserts the **server-side effect** (through the BFF8
 proxy or the CLI), not UI text. History: the ledger audit-INSERT arity
-bug produced exactly this blind spot — every posting rolled back
+bug produced exactly this blind spot - every posting rolled back
 server-side while the teller UI reported "$500 deposited successfully",
 and the suite stayed green for weeks. Two corollaries:
 
-- Tenant data is resolved **through the same surface the human uses** —
+- Tenant data is resolved **through the same surface the human uses** -
   e.g. the eTeller account list is fetched via the delegated BFF session
   (`/proxy/bank8-ledger/v1/accounts`), never with a platform-operator
   token (env-locking makes that path empty by design).
-- The suite is a **product-gap detector, not a workaround engine** — a
+- The suite is a **product-gap detector, not a workaround engine** - a
   state that cannot be reached through the UI/API is a backend gap to
   fix, never something to paper over with direct data access.
 
@@ -129,5 +129,5 @@ browser interactions; any console error or HTTP failure fails the test.
 
 ## What is NOT tested here
 
-- **Dash/platform flows** — live in the platform e2e repo (`sentin8-e2e`).
-- **Flutter unit/widget tests** — in the app repos themselves.
+- **Dash/platform flows** - live in the platform e2e repo (`sentin8-e2e`).
+- **Flutter unit/widget tests** - in the app repos themselves.

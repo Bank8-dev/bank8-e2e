@@ -3,13 +3,13 @@
 // SPDX-FileCopyrightText: Copyright Contributors to the Bank8:E2E
 // SPDX-License-Identifier: Apache-2.0
 
-// fixtures/harness.ts — Playwright helpers for the bank8 tenant e2e suites.
+// fixtures/harness.ts - Playwright helpers for the bank8 tenant e2e suites.
 //
 // This suite drives ONLY the four bank8 tenant apps through a real
-// browser — platform setup happens in tests/global-setup.ts via the
+// browser - platform setup happens in tests/global-setup.ts via the
 // sentin8-cli binary, so the harness carries no Dash flows. Provides:
 //   - clickFlutterButton / waitForFlutterText / typeFlutterField / etc.
-//   - gotoCertWarm — first-goto TLS cert-warmup retry
+//   - gotoCertWarm - first-goto TLS cert-warmup retry
 //   - signOutViaUI, signInOnAuth8, signUpViaApp, signInToTenantAuth8
 //   - assertSessionCookieSet and other assertion helpers
 //
@@ -23,7 +23,7 @@ import { type Page, type BrowserContext, expect } from '@playwright/test';
 
 /**
  * Goto with a cert-warmup retry: an app-served hostname on a freshly
- * created env has no TLS cert yet — the browser's first handshake loses
+ * created env has no TLS cert yet - the browser's first handshake loses
  * the race against the on-demand Acme fetch (the cert lands ~100ms
  * later; observed `net::ERR_SSL_PROTOCOL_ERROR` on the very first
  * goto). One bounded retry absorbs that window for every caller.
@@ -72,7 +72,7 @@ async function signUpOnAuth8(
 ): Promise<void> {
   logStep(`[step] signUpOnAuth8: filling form for ${email}`);
   await waitForFlutterSemantics(page, 2_000);
-  // The auth8-ui may land on the sign-in page first — click "Sign up"
+  // The auth8-ui may land on the sign-in page first - click "Sign up"
   // to switch to the sign-up form, but only if the sign-up form isn't
   // already visible (e.g. when navigated directly to /sign-up).
   let hasSignUpForm = false;
@@ -93,7 +93,7 @@ async function signUpOnAuth8(
       return false;
     }, 'first name (optional)');
   } catch {
-    // Navigation in progress — assume sign-up form not visible yet.
+    // Navigation in progress - assume sign-up form not visible yet.
   }
   if (!hasSignUpForm) {
     await clickFlutterButton(page, 'Sign up');
@@ -123,7 +123,7 @@ async function signUpOnAuth8(
       return !!document.querySelector('flt-semantics[role="checkbox"]');
     });
   } catch {
-    // Execution context destroyed (navigation in progress) — the form
+    // Execution context destroyed (navigation in progress) - the form
     // submitted successfully, so we're no longer on the sign-up page.
     stillOnSignUp = false;
   }
@@ -138,7 +138,7 @@ export async function signInOnAuth8(page: Page, email: string, password: string)
   logStep(`[step] signInOnAuth8: signing in ${email}`);
   await waitForFlutterSemantics(page, 2_000);
   // Wait for the sign-in form to be ready before typing. The auth redirect
-  // chain may still be in flight when this runs — poll for the form (3
+  // chain may still be in flight when this runs - poll for the form (3
   // attempts) before failing; if the OAuth callback completes the sign-in
   // client-side in the meantime (auto-session), the URL check in the caller
   // handles it and this wait is moot.
@@ -151,7 +151,7 @@ export async function signInOnAuth8(page: Page, email: string, password: string)
     } catch {
       const url = page.url();
       if (!url.includes('sign-in') && !url.includes('auth')) {
-        // Already redirected away from the auth page — the session is live.
+        // Already redirected away from the auth page - the session is live.
         emailVisible = true;
         break;
       }
@@ -164,10 +164,10 @@ export async function signInOnAuth8(page: Page, email: string, password: string)
   // The sign-up → auto-session path can complete the OAuth callback WHILE we
   // were waiting for the form: the page may now be back at the app (or on the
   // consent page), not on /sign-in. Typing into the form then fails with "No
-  // Flutter text field found" — treat a redirect-away as success instead.
+  // Flutter text field found" - treat a redirect-away as success instead.
   const urlBeforeType = page.url();
   if (!urlBeforeType.includes('sign-in') && !urlBeforeType.includes('auth')) {
-    logStep(`[step] signInOnAuth8: page already redirected away (session live) — skipping sign-in`);
+    logStep(`[step] signInOnAuth8: page already redirected away (session live) - skipping sign-in`);
     return;
   }
   await page.waitForTimeout(500);
@@ -197,7 +197,7 @@ export async function signUpViaApp(
   // landing page entirely (the app renders the signed-in dashboard). Clear
   // cookies and storage so we genuinely test the sign-up path.
   await context.clearCookies();
-  // Navigate to the app. Retry on connection reset — the proxy may need
+  // Navigate to the app. Retry on connection reset - the proxy may need
   // to fetch a TLS cert from ACME on the first request (1-2s).
   let lastErr: unknown;
   for (let attempt = 0; attempt < 3; attempt++) {
@@ -235,16 +235,16 @@ export async function signUpViaApp(
   // (a) redirect to /sign-in for the user to sign in, or
   // (b) go directly to the OAuth consent page (/oauth/authorize) if the
   //     sign-up auto-creates a session.
-  // Handle both paths — poll for either URL pattern.
+  // Handle both paths - poll for either URL pattern.
   // NOTE: the sign-up → sign-in path can chain: sign-up lands on /sign-in,
   // the sign-in redirect then lands on the consent page. So path (a) does
-  // NOT break — it loops back so path (b) can click Authorize on the
+  // NOT break - it loops back so path (b) can click Authorize on the
   // consent page that follows.
   let pathResolved = false;
   for (let retry = 0; retry < 30; retry++) {
     await page.waitForTimeout(1000);
     const url = page.url();
-    // Path (c): back at the app — the OAuth callback completed and BFF
+    // Path (c): back at the app - the OAuth callback completed and BFF
     // redirected to the app dashboard (first-party clients skip consent).
     // Check FIRST: once we're at the app, neither /sign-in nor /consent
     // will match again.
@@ -253,20 +253,20 @@ export async function signUpViaApp(
       break;
     }
     if (url.includes('/sign-in')) {
-      // Path (a): sign in with the new credentials, then keep polling —
+      // Path (a): sign in with the new credentials, then keep polling -
       // the sign-in may redirect to the consent page (eFintech's client is
       // consent_required = true), which path (b) handles below.
       await waitForFlutterSemantics(page, 2_000);
       await signInOnAuth8(page, email, password);
       continue;
     } else if (url.includes('/oauth/') || url.includes('authorize') || url.includes('/consent')) {
-      // Path (b): consent page — click "Authorize" to continue.
+      // Path (b): consent page - click "Authorize" to continue.
       // FAIL FAST with context if the auth-ui consent page never becomes
       // interactive (Flutter semantics attached).
       try {
         await waitForFlutterSemantics(page, 2_000);
       } catch {
-        throw new Error(`signUpViaApp: consent page did not attach semantics — still on ${page.url()}`);
+        throw new Error(`signUpViaApp: consent page did not attach semantics - still on ${page.url()}`);
       }
       // The consent page's "Authorize" button triggers a POST to
       // /oauth/authorize/continue. Try multiple click strategies.
@@ -311,7 +311,7 @@ export async function signUpViaApp(
       try {
         await page.waitForURL((u) => !u.toString().includes('auth.'), { timeout: 5_000 });
       } catch {
-        throw new Error(`signUpViaApp: Authorize click did not redirect away from auth — still on ${page.url()}`);
+        throw new Error(`signUpViaApp: Authorize click did not redirect away from auth - still on ${page.url()}`);
       }
       pathResolved = true;
       break;
@@ -335,12 +335,12 @@ export async function signInToTenantAuth8(
   password: string,
 ): Promise<void> {
   logStep(`[step] signInToTenantAuth8: signing in ${email} at ${appURL}`);
-  // Do NOT clear cookies — see signInToDash for rationale.
+  // Do NOT clear cookies - see signInToDash for rationale.
   await page.goto(appURL, { waitUntil: 'domcontentloaded' });
   await waitForFlutterSemantics(page, 2_000);
   // The app may already have a valid BFF8 session (e.g. if the user
   // signed up moments ago and the session cookie is still valid). In
-  // that case the app shows the authenticated dashboard directly — no
+  // that case the app shows the authenticated dashboard directly - no
   // "Sign In" button. Check for "Sign In" first; if it's not visible
   // within a few seconds, assume we're already authenticated and skip
   // the sign-in flow.
@@ -349,10 +349,10 @@ export async function signInToTenantAuth8(
     await waitForFlutterText(page, 'Sign In', 2_000);
     needsSignIn = true;
   } catch {
-    // No "Sign In" button — already authenticated (dashboard visible).
+    // No "Sign In" button - already authenticated (dashboard visible).
   }
   if (!needsSignIn) {
-    // Already authenticated — wait for the dashboard to settle and return.
+    // Already authenticated - wait for the dashboard to settle and return.
     const authDeadline = Date.now() + 2_000;
     while (Date.now() < authDeadline) {
       const texts = await getFlutterTexts(page);
@@ -382,7 +382,7 @@ export async function signInToTenantAuth8(
   while (Date.now() < callbackDeadline) {
     const url = page.url();
     if (!url.includes('/sign-in') && !url.includes('/oauth/') && !url.includes('/auth/callback')) {
-      break; // Redirected to the app frontend — OAuth callback completed.
+      break; // Redirected to the app frontend - OAuth callback completed.
     }
     await page.waitForTimeout(500);
   }
@@ -418,14 +418,14 @@ import { logStep } from './log.js';
 /**
  * Find a flt-semantics element containing the given text and dispatch
  * a synthetic click.  This is the only way to trigger Flutter
- * CanvasKit button presses — Playwright's locator click is
+ * CanvasKit button presses - Playwright's locator click is
  * intercepted by the canvas.
  */
 export async function clickFlutterButton(page: Page, text: string, exact: boolean = false): Promise<void> {
   // Find the flt-semantics button element containing the text, get its
   // bounding rect, and click at its center using Playwright's mouse.
   // This sends real pointer events that Flutter CanvasKit processes.
-  // Retry for up to 10 seconds — the button might not be rendered yet.
+  // Retry for up to 10 seconds - the button might not be rendered yet.
   const deadline = Date.now() + 2_000;
   while (Date.now() < deadline) {
     const rect = await page.evaluate(({ needle, exact }: { needle: string; exact: boolean }) => {
@@ -464,8 +464,8 @@ export async function clickFlutterButton(page: Page, text: string, exact: boolea
 }
 
 /**
- * Click a Flutter button (by label) that is near — i.e. inside the same
- * flt-semantics subtree as — another text label. Useful for clicking a
+ * Click a Flutter button (by label) that is near - i.e. inside the same
+ * flt-semantics subtree as - another text label. Useful for clicking a
  * "View" button in a card that also contains the row's name.
  *
  * Strategy: find the flt-semantics container whose text includes `nearText`,
@@ -548,7 +548,7 @@ export async function waitForFlutterText(page: Page, text: string, timeout = 2_0
           if (r.width > 0 && r.height > 0) return true;
         }
         // Second pass: accept zero-size elements too. CanvasKit renders
-        // text on the canvas, not in the DOM — the flt-semantics element
+        // text on the canvas, not in the DOM - the flt-semantics element
         // may have zero size but the text IS visible on the canvas.
         // Skip elements that are not connected to the DOM (stale/removed).
         for (const el of Array.from(els)) {
@@ -566,7 +566,7 @@ export async function waitForFlutterText(page: Page, text: string, timeout = 2_0
       }, needle);
       if (found) return;
     } catch {
-      // Execution context destroyed (navigation in progress) — retry.
+      // Execution context destroyed (navigation in progress) - retry.
     }
     await page.waitForTimeout(100);
   }
@@ -611,7 +611,7 @@ export async function clickFlutterCheckbox(page: Page, nearbyText: string): Prom
         });
         if (idx >= switches.length) return null;
         const sw = switches[idx];
-        // Get the parent Row's bounding rect (the feature card) — the InkWell
+        // Get the parent Row's bounding rect (the feature card) - the InkWell
         // wraps the entire Row, so clicking the center of the Row triggers it.
         const row = sw.parentElement;
         if (row) {
@@ -641,7 +641,7 @@ export async function clickFlutterCheckbox(page: Page, nearbyText: string): Prom
             (el as HTMLElement).style.pointerEvents = 'none';
           });
         });
-        // Click at the card center — the GestureDetector with
+        // Click at the card center - the GestureDetector with
         // HitTestBehavior.opaque should receive the pointer event.
         await page.mouse.click(rect.x, rect.y);
         await page.waitForTimeout(300);
@@ -681,7 +681,7 @@ export async function clickFlutterCheckbox(page: Page, nearbyText: string): Prom
     }, nearbyText);
 
     if (!targetVisible) {
-      // Scroll down — try mouse wheel first, then keyboard Page Down.
+      // Scroll down - try mouse wheel first, then keyboard Page Down.
       // Flutter CanvasKit processes wheel events on the canvas.
       await page.mouse.move(400, 300);
       await page.mouse.wheel(0, 500);
@@ -707,7 +707,7 @@ export async function clickFlutterCheckbox(page: Page, nearbyText: string): Prom
         if (t === n || a === n) { textEl = el; break; }
       }
       if (!textEl) {
-        // Try child elements — the display name might be in a child node.
+        // Try child elements - the display name might be in a child node.
         for (const el of Array.from(els)) {
           const child = el.querySelector('flt-semantics');
           if (child) {
@@ -797,7 +797,7 @@ export async function clickFlutterCheckbox(page: Page, nearbyText: string): Prom
     }, nearbyText);
     if (rect) {
       // Try multiple approaches to toggle the switch:
-      // 1. Simulate a proper tap gesture (move, down, wait, up) — Flutter
+      // 1. Simulate a proper tap gesture (move, down, wait, up) - Flutter
       //    CanvasKit requires a proper tap gesture, not just a click event.
       // 2. Dispatch a click event on the flt-semantics element
       // 3. Playwright's getByRole locator with force click
@@ -846,7 +846,7 @@ export async function clickFlutterCheckbox(page: Page, nearbyText: string): Prom
                bestSwitch.getAttribute('aria-pressed') === 'true';
       }, nearbyText).catch(() => false);
       if (toggled) return;
-      // Not toggled by mouse click — try dispatching a click event on the
+      // Not toggled by mouse click - try dispatching a click event on the
       // flt-semantics switch element directly. Use the same y-coordinate
       // matching to find the right switch.
       const dispatched = await page.evaluate((needle: string) => {
@@ -917,7 +917,7 @@ export async function typeFlutterField(page: Page, label: string, value: string)
   // IMPORTANT: Flutter CanvasKit text fields use a custom editing host that
   // listens to real keyboard events. We focus the host, then send the
   // whole value in one shot via `page.keyboard.insertText` (a single
-  // `input` event — paste-like).  We MUST NOT use character-by-character
+  // `input` event - paste-like).  We MUST NOT use character-by-character
   // `keyboard.type(...)` because (a) it's slow and (b) the per-character
   // `input` events can race with Flutter's text-editing controller.
   //
@@ -930,14 +930,14 @@ export async function typeFlutterField(page: Page, label: string, value: string)
 
   // Helper: focus a target, clear any existing value via Ctrl+A + Delete
   // (real keyboard events, picked up by Flutter), then insert the value
-  // in one shot via `insertText` (a single `input` event — paste-like).
+  // in one shot via `insertText` (a single `input` event - paste-like).
   const fillFocused = async (): Promise<void> => {
     for (let attempt = 0; attempt < 3; attempt++) {
       await page.keyboard.press('Control+A');
       await page.keyboard.press('Delete');
       await page.keyboard.insertText(value);
       await page.waitForTimeout(100);
-      // Verify the value landed — Flutter's IME can race insertText and
+      // Verify the value landed - Flutter's IME can race insertText and
       // drop/duplicate the last character (observed: '...@a.coe' → 401).
       const current = await page.evaluate(() => {
         const el = document.activeElement as HTMLInputElement | null;
@@ -998,7 +998,7 @@ export async function typeFlutterField(page: Page, label: string, value: string)
       return;
     }
 
-    // None of the approaches found the textbox yet — wait briefly and retry.
+    // None of the approaches found the textbox yet - wait briefly and retry.
     await page.waitForTimeout(500);
   }
 
@@ -1081,7 +1081,7 @@ export async function typeFlutterFieldByIndex(
  *   3. Presses Enter to commit the scope via the field's `onSubmitted`
  *      handler, which calls `_add()` on the ScopeSelector state.
  *
- * This exercises the real widget code path — the e2e test no longer
+ * This exercises the real widget code path - the e2e test no longer
  * relies on a textual TextField that was removed in favour of the
  * structured chip-based selector.
  */
@@ -1093,7 +1093,7 @@ export async function addScopeViaUI(
   // The scope input may be off-screen if the form has scrolled due
   // to many chips being added above. Scroll it into view first so
   // the subsequent click and keyboard events land on the visible
-  // input — Flutter CanvasKit text fields require the input host
+  // input - Flutter CanvasKit text fields require the input host
   // to be in the viewport to receive focus.
   await scrollFlutterTextboxIntoView(page, baseIndex);
   await typeFlutterFieldByIndex(page, baseIndex, scope, { submit: true });
@@ -1106,7 +1106,7 @@ export async function addScopeViaUI(
  * comma-separated list.  The widget's `onSubmitted` handler splits
  * on `,` and whitespace, validates each token, and adds the
  * valid ones in one pass.  The duplicate check inside the widget
- * means already-added scopes are silently dropped — callers can
+ * means already-added scopes are silently dropped - callers can
  * safely re-submit the full list.
  *
  * @param page  Playwright page.
@@ -1141,7 +1141,7 @@ export async function addScopesBatchViaUI(
  * `InputChip`s below the input.
  *
  * The autocomplete enforces that the typed name matches an
- * existing candidate (defined above this row in the listing) —
+ * existing candidate (defined above this row in the listing) -
  * otherwise the typed value is silently ignored.  This is by
  * design: dangling includes are impossible by construction.
  *
@@ -1150,7 +1150,7 @@ export async function addScopesBatchViaUI(
  *   earlier in the same listing.
  * @param baseIndex  Index of the includes-picker textbox in the
  *   global textbox ordering.  The first role has no includes
- *   textbox rendered (no candidates yet) — callers should only
+ *   textbox rendered (no candidates yet) - callers should only
  *   pass `baseIndex >= 11` (i.e. the third role onward; the
  *   second role already has one at index 10).
  */
@@ -1159,7 +1159,7 @@ export async function addIncludeViaUI(
   names: string | string[],
   baseIndex: number,
 ): Promise<void> {
-  // Scroll the includes textbox into view first — the includes
+  // Scroll the includes textbox into view first - the includes
   // section sits at the bottom of the role, often off-screen.
   await scrollFlutterTextboxIntoView(page, baseIndex);
   // Accept a single name or an array.  Multiple names are typed
@@ -1172,7 +1172,7 @@ export async function addIncludeViaUI(
   await typeFlutterFieldByIndex(page, baseIndex, value, { submit: true });
   // Wait for the chips to render + onChanged to fire.
   await page.waitForTimeout(250);
-  // Verify the chips were actually added — guards against silent
+  // Verify the chips were actually added - guards against silent
   // drops if the typed names didn't match candidates.  Selected
   // includes are rendered as Material `InputChip`s, which Flutter
   // exposes as a `role="checkbox"` (with the chip label as the
@@ -1182,7 +1182,7 @@ export async function addIncludeViaUI(
     const chip = page.getByRole('checkbox', { name, exact: true });
     if ((await chip.count()) === 0) {
       throw new Error(
-        `addIncludeViaUI: include "${name}" was not committed — the autocomplete may have ` +
+        `addIncludeViaUI: include "${name}" was not committed - the autocomplete may have ` +
           `rejected it (typo? or this role is not defined above the current row?).`,
       );
     }
@@ -1193,7 +1193,7 @@ export async function addIncludeViaUI(
  * Add a security role to the create-listing form's [RoleSelector].
  * Clicks the "Add Role" button, then fills the role's name
  * (appending `*` if it's the default signup role), description,
- * and nested scopes — all via the actual UI controls.
+ * and nested scopes - all via the actual UI controls.
  *
  * @param baseIndex  Index of the FIRST textbox for the new role.
  *   The form has 4 prefix textboxes (App Name, Description,
@@ -1217,7 +1217,7 @@ export async function addRoleViaUI(
     /**
      * Names of OTHER roles (defined earlier in the same listing)
      * whose scopes should be merged into this role's permissions
-     * at install time.  Same listing only — the RoleSelector UI
+     * at install time.  Same listing only - the RoleSelector UI
      * only offers roles defined above the current row.
      */
     includes?: string[];
@@ -1242,7 +1242,7 @@ export async function addRoleViaUI(
   // may not focus it correctly.
   await scrollFlutterTextboxIntoView(page, baseIndex);
   // Fill the role name (textbox at baseIndex). Append `*` if this
-  // is the default signup role — the RoleSelector strips the
+  // is the default signup role - the RoleSelector strips the
   // marker and sets the default-signup pointer.
   const nameValue = isDefaultSignup ? `${role.name}*` : role.name;
   await typeFlutterFieldByIndex(page, baseIndex, nameValue);
@@ -1271,11 +1271,11 @@ export async function addRoleViaUI(
   if (role.includes && role.includes.length > 0) {
     // The includes textbox sits at baseIndex + 3 (name, desc,
     // scopes, includes).  The first role (baseIndex=4) has no
-    // includes textbox rendered (no candidates yet) — reject this
+    // includes textbox rendered (no candidates yet) - reject this
     // so the caller knows.
     if (baseIndex === 4) {
       throw new Error(
-        `addRoleViaUI: includes on the first role ("${role.name}") are not supported — ` +
+        `addRoleViaUI: includes on the first role ("${role.name}") are not supported - ` +
           `the autocomplete has no candidates until at least one role is defined above.`,
       );
     }
@@ -1289,7 +1289,7 @@ export async function addRoleViaUI(
 /**
  * Scroll the Flutter button containing the given text into the
  * viewport.  Flutter CanvasKit InkWells must be in the viewport to
- * fire their onPressed — a click at off-screen coordinates is
+ * fire their onPressed - a click at off-screen coordinates is
  * silently dropped.
  *
  * Strategy: find the button's flt-semantics rect, then scroll the
@@ -1327,7 +1327,7 @@ export async function scrollFlutterButtonIntoView(
     await page.keyboard.press('PageDown');
     await page.waitForTimeout(300);
   }
-  // Don't throw — clickFlutterButton will throw a clear error if
+  // Don't throw - clickFlutterButton will throw a clear error if
   // the button still can't be found after scrolling.
 }
 

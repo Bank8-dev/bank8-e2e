@@ -3,10 +3,10 @@
 // SPDX-FileCopyrightText: Copyright Contributors to the Bank8:E2E
 // SPDX-License-Identifier: Apache-2.0
 
-// tests/global-setup.ts — runs ONCE before all test files.
+// tests/global-setup.ts - runs ONCE before all test files.
 //
 // Platform setup happens entirely through the sentin8-cli binary (no Dash
-// browser flows — Dash coverage lives in the sentin8 e2e suite):
+// browser flows - Dash coverage lives in the sentin8 e2e suite):
 //
 //   1. CLI sign-in (Bill, platform operator) via headless device flow.
 //   2. iBank org + staff/prod envs via `sys org create` / `sys env create`.
@@ -63,7 +63,7 @@ export async function globalSetup(): Promise<void> {
   // to an async Sentin8:Flow workflow (sentin8 sys design §5.1). A CLI
   // call that lands inside that window fails with a transient 403
   // "not a member of this organization" (§3.1d-1 pre-grant identity).
-  // The settled variant retries until membership exists — do NOT
+  // The settled variant retries until membership exists - do NOT
   // proceed to env creation until this succeeds.
   const orgVerify = await cliCallSettled('sys', 'GET', `/v1/org/${ibankOrgId}`);
   assertCliOk(orgVerify, 'globalSetup: CLI verify iBank org (provisioning barrier)');
@@ -101,18 +101,18 @@ export async function globalSetup(): Promise<void> {
     'globalSetup: CLI verify iBank prod env',
   );
 
-  // Refresh the CLI token — org + env creation assigned Bill new roles
+  // Refresh the CLI token - org + env creation assigned Bill new roles
   // (org:admin → nested sys:features:admin etc.), but the access token
   // predates them and carries the old scope set.
   await cliRefreshToken();
 
   // ── 3. Enable vertical services on the prod env ────────────────────
   // VDC-9 (design/sentin8-vertical-data-plane-contract.md §VDC.8): ONE
-  // enable event per service — the env-init path is verified working, so
+  // enable event per service - the env-init path is verified working, so
   // the former brute-force re-PUT loops (30× re-firing the enable event to
   // mask a silently-broken consumer) are removed. A seed that genuinely
   // fails must FAIL the suite, not be retried away.
-  // reporting/risk/compliance are the regulatory suite — enabling them
+  // reporting/risk/compliance are the regulatory suite - enabling them
   // seeds jurisdiction obligations + policy templates through each
   // service's env-init consumer (bank8:reporting:envinit etc.).
   for (const svc of ['ledger', 'payments', 'fdx', 'reporting', 'risk', 'compliance']) {
@@ -127,20 +127,20 @@ export async function globalSetup(): Promise<void> {
   // name appears. Test 6 (FDX consent) hard-fails without it, and the SSE
   // consumer can lag the service-enabled event by seconds. Polling keeps
   // the async registration out of the test's path; the poll is a bounded
-  // OBSERVATION only (VDC-9) — a stall fails loudly instead of re-firing
+  // OBSERVATION only (VDC-9) - a stall fails loudly instead of re-firing
   // the event.
   const orgProviderName = `iBank${RUN_ID}`;
   let providerRegistered = false;
   for (let i = 0; i < 45 && !providerRegistered; i++) {
     try {
-      // NOTE: the service name must be the DASH form (`bank8-fdx`) — the
+      // NOTE: the service name must be the DASH form (`bank8-fdx`) - the
       // CLI's `call` resolver derives `{name}.ops.sys.{domain}` and only
       // the dash form matches the enrolled subdomain (the bare leaf `fdx`
       // 404s on Web's app-fallback; platform CLI defect, sentin8 backlog).
       const resp = await cliCall('bank8-fdx', 'GET', '/v1/recipient/providers');
       const body = JSON.stringify(resp.json ?? {});
       if (body.includes(`iBank${RUN_ID}`)) providerRegistered = true;
-    } catch { /* fdx may still be booting — retry */ }
+    } catch { /* fdx may still be booting - retry */ }
     if (!providerRegistered) {
       await new Promise((r) => setTimeout(r, 1_000));
     }
@@ -148,7 +148,7 @@ export async function globalSetup(): Promise<void> {
   if (providerRegistered) {
     console.log(`  ✅ globalSetup: FDX provider profile registered (${orgProviderName})`);
   } else {
-    console.log(`  ⚠️ globalSetup: FDX provider profile NOT observed — test 6 may fail`);
+    console.log(`  ⚠️ globalSetup: FDX provider profile NOT observed - test 6 may fail`);
   }
 
   // ── 4. Install app instances from store listings ────────────────────
@@ -164,7 +164,7 @@ export async function globalSetup(): Promise<void> {
   /**
    * Install an app instance via POST /v1/app/setup. The endpoint returns an
    * RFW redirect (no hostname body), so the canonical default hostname is
-   * derived here — matching setup_instance's derivation for non-custom
+   * derived here - matching setup_instance's derivation for non-custom
    * domains: {app_slug}.{env_slug}.{org_domain}.
    */
   const instanceIds = new Map<string, string>();
@@ -179,7 +179,7 @@ export async function globalSetup(): Promise<void> {
     const resp = await cliCall('app', 'POST', '/v1/app/setup', body, envId);
     assertCliOk(resp, `globalSetup: install ${slug}`);
     // Resolve the instance id via Sys's auth-mode API (the same lookup the
-    // BFF's F-A gate uses) — the F-A strict gate checks membership of the
+    // BFF's F-A gate uses) - the F-A strict gate checks membership of the
     // setup-provisioned `sentin8:app:{instance_id}` group in the token's
     // auth env, and that group's role carries the listing's scopes (the
     // live `principal.scopes` the vertical scope-mirror policies evaluate
@@ -192,7 +192,7 @@ export async function globalSetup(): Promise<void> {
     assertCliOk(authMode, `globalSetup: auth-mode lookup for ${slug}`);
     const body2 = authMode.json as { application_id?: string };
     instanceIds.set(slug, body2.application_id ?? '');
-    // Default hostname: {app_slug}.{env_slug}.{org.domain} — org.domain is
+    // Default hostname: {app_slug}.{env_slug}.{org.domain} - org.domain is
     // the platform-assigned domain ({slug}.{SENTIN8_DOMAIN}), NOT the
     // persona's .local string.
     return `${slug}.${bill.envSlug}.${ibankOrgDomain}`;
@@ -235,24 +235,24 @@ export async function globalSetup(): Promise<void> {
     console.log(`  ✅ globalSetup: ${label}`);
   }
 
-  // Ben → sentin8:env:admins (the platform-seeded env admin group — sys
+  // Ben → sentin8:env:admins (the platform-seeded env admin group - sys
   // env provisioning creates it with the `sentin8:env:admin` role attached,
-  // whose permissions include `sentin8:sys:env:admin` — the live scope the
+  // whose permissions include `sentin8:sys:env:admin` - the live scope the
   // vertical scope-mirror policies permit on) + membership in the admin
   // app's instance group `sentin8:app:bank8_admin` (the F-A app-group gate,
   // BFF design §4.3a, strict mode: staff-app users must be members of the
-  // instance's group in the token's auth env — org admin roles alone no
+  // instance's group in the token's auth env - org admin roles alone no
   // longer grant an admin-app session). The instance group is provisioned
   // by app setup_instance (staff auth_domain → staff env) BEFORE here, so
   // ensureGroupMember finds it in the catalog. Uniform RBAC naming
   // (principles §6.0b): the `sentin8:app:` prefix replaced the legacy bare
-  // `app:` form; the legacy org-scoped `org:admins` group is gone —
+  // `app:` form; the legacy org-scoped `org:admins` group is gone -
   // env-scoped admin authorization rides the sys-seeded `sentin8:env:admins`.
   await ensureGroupMember('sentin8:env:admins', (benUser.json as { id: string }).id, 'Ben → sentin8:env:admins');
   // Ben/Bob → the INSTANCE groups provisioned by app setup
   // (`sentin8:app:{instance_id}`, staff auth env). The F-A strict gate
   // checks THESE names, and their setup-attached role carries the
-  // listing's scopes — the live `principal.scopes` the vertical
+  // listing's scopes - the live `principal.scopes` the vertical
   // scope-mirror policies evaluate against. The legacy snake_case groups
   // (`sentin8:app:bank8_admin`) grant nothing (AUTH-3 retired them).
   const adminInstanceGroup = instanceIds.get('bank8-admin');
@@ -285,7 +285,7 @@ export async function globalSetup(): Promise<void> {
   const ifintechOrgDomain =
     (fintechOrg.json as { custom_domain?: string }).custom_domain ?? frank.domain!;
 
-  // Same provisioning barrier as the iBank org above — the eFintech
+  // Same provisioning barrier as the iBank org above - the eFintech
   // install below targets this org's env and would 403 inside the
   // pre-grant window.
   const fintechOrgVerify = await cliCallSettled('sys', 'GET', `/v1/org/${ifintechOrgId}`);
@@ -312,10 +312,10 @@ export async function globalSetup(): Promise<void> {
   // eBank never hit this because ~49 s elapse (FDX provider poll) before
   // its install; eFintech is installed ~1 ms after the env is created so
   // it raced the env-auth provisioning every run. Poll the env auth
-  // until it answers (any HTTP verdict counts — TLS/404/405 mean the
+  // until it answers (any HTTP verdict counts - TLS/404/405 mean the
   // route is live; only connect/TLS-refusal means "not yet"), then
   // install. Bounded observation (max 45 s) like the FDX provider poll
-  // — a stall fails loudly instead of hiding behind the swallow.
+  // - a stall fails loudly instead of hiding behind the swallow.
   const ifintechAuthUrl = `https://auth.${frank.envSlug}.${ifintechOrgDomain}`;
   {
     const prevTls = process.env.NODE_TLS_REJECT_UNAUTHORIZED;
@@ -330,7 +330,7 @@ export async function globalSetup(): Promise<void> {
           await fetch(ifintechAuthUrl, { method: 'GET', redirect: 'manual', signal: probe.signal });
           authReachable = true;
         } catch {
-          // Not routable yet (ENOTFOUND / ECONNREFUSED / TLS refused / abort) —
+          // Not routable yet (ENOTFOUND / ECONNREFUSED / TLS refused / abort) -
           // wait and probe again.
         } finally {
           clearTimeout(timer);
@@ -346,7 +346,7 @@ export async function globalSetup(): Promise<void> {
     if (authReachable) {
       console.log(`  ✅ globalSetup: iFinTech env auth reachable (${ifintechAuthUrl})`);
     } else {
-      console.log(`  ⚠️ globalSetup: iFinTech env auth NOT observed — eFintech DCR may fail`);
+      console.log(`  ⚠️ globalSetup: iFinTech env auth NOT observed - eFintech DCR may fail`);
     }
   }
 
@@ -376,7 +376,7 @@ export async function globalSetup(): Promise<void> {
   };
   mkdirSync(dirname(META_PATH), { recursive: true });
   writeFileSync(META_PATH, JSON.stringify(meta, null, 2));
-  console.log(`  ✅ globalSetup complete — meta written to ${META_PATH}`);
+  console.log(`  ✅ globalSetup complete - meta written to ${META_PATH}`);
 }
 
 export default globalSetup;

@@ -3,13 +3,13 @@
 // SPDX-FileCopyrightText: Copyright Contributors to the Bank8:E2E
 // SPDX-License-Identifier: Apache-2.0
 
-// fixtures/apiclient.ts — direct HTTP API client (no browser) for
+// fixtures/apiclient.ts - direct HTTP API client (no browser) for
 // setup/teardown that a human would never perform in the UI.
 //
 // Mirrors fixtures/apiclient.go + fixtures/apiclient_cookies.go from
 // the Go suite.  Uses Node's built-in fetch (Node ≥18) and trusts
 // the local Sentin8 root CA from SENTIN8_CA_CERT (or well-known locations)
-// by setting NODE_EXTRA_CA_CERTS (the simplest portable approach —
+// by setting NODE_EXTRA_CA_CERTS (the simplest portable approach -
 // Node's global fetch / undici both honor it).
 
 import { readFileSync, existsSync } from 'node:fs';
@@ -45,12 +45,12 @@ function makeFetch(allowInsecure: boolean): typeof fetch {
     // Construct an Agent-like dispatcher via undici's global Agent.
     // Node ≥18 has globalThis.fetch backed by undici; we can disable
     // verification by setting NODE_TLS_REJECT_UNAUTHORIZED=0 for the
-    // process — but that affects every test.  Instead we route through
+    // process - but that affects every test.  Instead we route through
     // a small undici.Agent.  To avoid the undici dep, we set the env
     // var only for the duration of an insecure call using a child
     // process would be heavy.  So instead we use the per-request
     // approach: undici's global agent honours NODE_TLS_REJECT_UNAUTHORIZED
-    // — we'll just flip it briefly inside the call.
+    // - we'll just flip it briefly inside the call.
     const prev = process.env.NODE_TLS_REJECT_UNAUTHORIZED;
     process.env.NODE_TLS_REJECT_UNAUTHORIZED = '0';
     const f = (...args: Parameters<typeof fetch>) => fetch(...args);
@@ -161,7 +161,7 @@ export class APIClient {
       method: 'POST',
       headers: this.buildInit('POST', undefined, {}).headers as Record<string, string>,
     });
-    // Best-effort — if refresh fails, the old token is still valid for
+    // Best-effort - if refresh fails, the old token is still valid for
     // non-admin operations.
     if (res.ok) {
       // Re-fetch CSRF token since the session was refreshed.
@@ -201,7 +201,7 @@ export class APIClient {
 
   /** Create an App8 store listing via the public API. Supports the full
    *  payload (app_slug, oauth_defaults). Security groups are no longer
-   *  declared on the listing — they are materialized per-instance at
+   *  declared on the listing - they are materialized per-instance at
    *  install time (Epic 12.4). */
   async createListing(payload: {
     app_name: string;

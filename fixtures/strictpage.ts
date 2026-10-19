@@ -3,7 +3,7 @@
 // SPDX-FileCopyrightText: Copyright Contributors to the Bank8:E2E
 // SPDX-License-Identifier: Apache-2.0
 
-// fixtures/strictpage.ts — wraps a Playwright Page and asserts that no
+// fixtures/strictpage.ts - wraps a Playwright Page and asserts that no
 // console errors or unexpected HTTP error responses occur during a test.
 //
 // Mirrors fixtures/strictpage.go from the Go suite.  The Dash/Auth8

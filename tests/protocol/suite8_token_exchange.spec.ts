@@ -5,7 +5,7 @@
 
 // tests/suite8_token_exchange.spec.ts
 //
-// Suite 8 — RFC 8693 Token Exchange — story 15.4.22.
+// Suite 8 - RFC 8693 Token Exchange - story 15.4.22.
 //
 // Verifies that:
 //   - Sentin8:Auth's /oauth/token accepts the token-exchange grant type
@@ -21,12 +21,12 @@ import { APIClient, Auth8URL, verticalServiceURL, logStep } from './fixtures/ind
 
 const httpClient = new APIClient({ baseURL: '', insecure: true });
 
-// RFC 8707 resource-indicator audience for bank8:ledger — the registry
+// RFC 8707 resource-indicator audience for bank8:ledger - the registry
 // subdomain form ({subdomain}.ops.sys.{SENTIN8_DOMAIN}), derived from
 // the env so alternate local domains keep working.
 const LEDGER_AUDIENCE = verticalServiceURL('bank8-ledger');
 
-test.describe('Suite 8 — RFC 8693 Token Exchange', () => {
+test.describe('Suite 8 - RFC 8693 Token Exchange', () => {
   test('TE1 discovery advertises token-exchange grant type', async () => {
     logStep('[suite8] TE1: discovery → expect grant_types_supported includes token-exchange');
     const r = await httpClient.get(`${Auth8URL}/.well-known/openid-configuration`);
@@ -63,7 +63,7 @@ test.describe('Suite 8 — RFC 8693 Token Exchange', () => {
 
   test('TE4 token-exchange without requested_tenancy.org_id returns 400', async () => {
     logStep('[suite8] TE4: token-exchange w/o requested_tenancy.org_id → expect 400 or 401');
-    // Use a dummy token — the handler should fail before verifying it
+    // Use a dummy token - the handler should fail before verifying it
     // if org_id is missing. But since verification happens first, we
     // expect 401 (invalid token) or 400 (missing org_id). Either way,
     // it should not succeed.
@@ -89,7 +89,7 @@ test.describe('Suite 8 — RFC 8693 Token Exchange', () => {
     expect(r.body).toContain('subject_token_type');
   });
 
-  // TE6–TE9 require a live sys-realm token and a real org/env. These
+  // TE6-TE9 require a live sys-realm token and a real org/env. These
   // tests are run as part of the full E2E suite (Suite 2 or Suite 5)
   // where a sys user is signed in and an org/env has been created.
   // The tests below verify the protocol-level behavior that doesn't

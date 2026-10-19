@@ -3,14 +3,14 @@
 // SPDX-FileCopyrightText: Copyright Contributors to the Bank8:E2E
 // SPDX-License-Identifier: Apache-2.0
 
-// fixtures/testdata.ts — shared test data (URLs, personas, listing payloads).
+// fixtures/testdata.ts - shared test data (URLs, personas, listing payloads).
 //
 // Mirrors fixtures/testdata.go from the Go playwright-go suite.
 //
 // Everything below is TENANT-ORG/ENV-first: this suite drives the bank8
 // vertical's four apps and their tenant auth hosts. The ONE platform
 // surface the suite needs is Sentin8:Auth's system-realm endpoint (the
-// CLI's device-flow sign-in in global-setup posts against it) — it is
+// CLI's device-flow sign-in in global-setup posts against it) - it is
 // the single `URLs.platformAuth` entry, derived from SENTIN8_DOMAIN.
 
 /** Sentin8 platform root domain (defaults to `local.sentin8.dev`). */
@@ -26,15 +26,15 @@ export const DOMAIN = process.env.SENTIN8_DOMAIN ?? 'local.sentin8.dev';
 //   staff auth env   https://auth.{env-slug}.{org-domain}
 //
 // org-domain defaults to {org-slug}.{SENTIN8_DOMAIN} but an org can set
-// a custom_domain (the personas below declare theirs — e.g.
+// a custom_domain (the personas below declare theirs - e.g.
 // ibank8NNNN.local); helpers take the resolved org domain as an arg.
 
 /** The two tenant org custom domains the protocol suites probe
- *  (suites 4/6) — global-setup creates the orgs with these
+ *  (suites 4/6) - global-setup creates the orgs with these
  *  custom_domain values.
  *  DNS: the resolver's wildcard covers *.local.sentin8.dev ONLY
  *  (SENTIN8_ACME_LOCAL_DOMAINS), so the tenant zones are derived as
- *  {tenant}.local.{DOMAIN} — subdomains of the platform wildcard zone,
+ *  {tenant}.local.{DOMAIN} - subdomains of the platform wildcard zone,
  *  never bare `.local` names (those resolve nowhere and Acme would
  *  relay them upstream). */
 export const TENANT_DOMAINS = {
@@ -83,7 +83,7 @@ export function verticalServiceURL(service: string, domain: string = DOMAIN): st
   return `https://${service}.ops.sys.${domain}`;
 }
 
-// ── Sentin8:Auth system-realm URL — the ONE platform entry ───────────
+// ── Sentin8:Auth system-realm URL - the ONE platform entry ───────────
 // Needed by fixtures/cli.ts (device-flow sign-in writes the CLI token
 // the setup calls ride on) and by the protocol suites' system-realm
 // checks (T4 issuer, T1/T6/T8 anonymous-endpoint probes).
@@ -108,7 +108,7 @@ export function emailWithRunID(base: string): string {
 
 // ── sentin8-cli binary ────────────────────────────────────────────────
 // Used by fixtures/cli.ts for all platform setup (org/env/features/apps/
-// users) — no Dash-driven platform setup in the bank8 suite.
+// users) - no Dash-driven platform setup in the bank8 suite.
 //
 // Path anchors are absolute (cwd-independent, RS §4.5.1-1): the sibling
 // platform group's cli checkout first, then a system-installed CLI.
@@ -202,7 +202,7 @@ export interface ListingPayload {
   // backendUrl: string;
   /** OAuth scopes the app requires (comma/space separated). */
   scopes?: string;
-  /** CIBA (OpenID 2 / RFC decoupled-flow) declaration — mirrors the
+  /** CIBA (OpenID 2 / RFC decoupled-flow) declaration - mirrors the
    *  app8-listing.json `ciba_defaults` block for eteller. */
   grantTypes?: string[];
   cibaDefaults?: {
@@ -215,7 +215,7 @@ export interface ListingPayload {
   };
 }
 
-/** Common scopes for an eBank retail customer — read-only access to
+/** Common scopes for an eBank retail customer - read-only access to
  *  their own accounts + ability to initiate payments. */
 const EBANK_CUSTOMER_SCOPES = [
   'bank8:ledger:accounts:read',
@@ -279,12 +279,12 @@ export const EFinTechListingPayload: ListingPayload = {
   appName: 'eFintech',
   appSlug: 'efintech',
   description:
-    'FDX Data Recipient app — connect your external bank accounts, view balances, transactions, and manage consent.',
+    'FDX Data Recipient app - connect your external bank accounts, view balances, transactions, and manage consent.',
   // backendUrl: 'http://localhost:3006',
   scopes: EFIN_TECH_RECIPIENT_SCOPES.join(' '),
 };
 
-/** eTeller scopes — teller staff with Ledg8 + Paym8 access for branch operations.
+/** eTeller scopes - teller staff with Ledg8 + Paym8 access for branch operations.
  *  Mirrors apps/eteller/app8-listing.json (the single source of truth):
  *  the manual-decisions scopes use the registry hyphen form, and the
  *  manifest carries only scopes with real handler gates. */
@@ -327,7 +327,7 @@ export const ETellerListingPayload: ListingPayload = {
     requestMode: 'poll',
     defaultExpirySeconds: 300,
     pollIntervalSeconds: 5,
-    bindingMessageTemplate: 'eTeller request from {teller_name} — {operation_label}',
+    bindingMessageTemplate: 'eTeller request from {teller_name} - {operation_label}',
     customerScopes: [
       'bank8:ledger:accounts:read', 'bank8:ledger:accounts:write',
       'bank8:ledger:postings:read', 'bank8:ledger:postings:write',

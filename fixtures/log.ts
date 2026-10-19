@@ -3,7 +3,7 @@
 // SPDX-FileCopyrightText: Copyright Contributors to the Bank8:E2E
 // SPDX-License-Identifier: Apache-2.0
 
-// fixtures/log.ts — shared step-log helper with a consistent timestamp prefix.
+// fixtures/log.ts - shared step-log helper with a consistent timestamp prefix.
 //
 // Every e2e log line is emitted as:
 //   [YYYY-MM-DDTHH:MM:SS.sssZ] [scope] message...

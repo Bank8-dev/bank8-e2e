@@ -3,16 +3,16 @@
 // SPDX-FileCopyrightText: Copyright Contributors to the Bank8:E2E
 // SPDX-License-Identifier: Apache-2.0
 
-// fixtures/cli.ts — sentin8-cli subprocess runner + output parser for bank8 e2e.
+// fixtures/cli.ts - sentin8-cli subprocess runner + output parser for bank8 e2e.
 //
 // The bank8 suite drives ALL platform setup through the real sentin8-cli
-// binary (subprocess) instead of the Dash UI — org/env creation, feature
+// binary (subprocess) instead of the Dash UI - org/env creation, feature
 // enablement, app installation, staff users, and group membership. This is
 // much faster than browser-driven Dash flows and leaves Dash testing to the
 // sentin8 e2e suite.
 //
 // Adapted from sentin8/e2e-ts/fixtures/cli.ts (shared pattern; bank8 keeps
-// its own copy because the suites are separate packages — see BACKLOG).
+// its own copy because the suites are separate packages - see BACKLOG).
 
 import { spawn, type ChildProcess } from 'node:child_process';
 import { writeFile, readFile, mkdir } from 'node:fs/promises';
@@ -36,12 +36,12 @@ export interface CliResult {
 // ── Core runner ────────────────────────────────────────────────────────
 
 /**
- * The CLI's state HOME for this suite — `~/.sentin8/credentials` under a
+ * The CLI's state HOME for this suite - `~/.sentin8/credentials` under a
  * private root the suite owns. The CLI resolves both config/credentials
  * and its Acme client dir from `$HOME` (config.rs, auth.rs), so pointing
  * HOME here isolates the bank8 run's token from any OTHER suite using
  * the same binary concurrently (the platform sentin8-e2e writes the same
- * shared file — observed clobbering this run's session between org
+ * shared file - observed clobbering this run's session between org
  * create and verify).
  */
 export const CLI_HOME = join(process.cwd(), '.tmp', 'cli-home');
@@ -49,10 +49,10 @@ export const CLI_HOME = join(process.cwd(), '.tmp', 'cli-home');
 /**
  * Plane env for the standalone CLI (BANK8CLI-ENV-1): the HOME override
  * above ALSO breaks the CLI's last-resort CA fallback
- * (`$HOME/.sentin8/acme/ca/root-ca.crt` — the sandbox dir has no Acme
+ * (`$HOME/.sentin8/acme/ca/root-ca.crt` - the sandbox dir has no Acme
  * state), and in a clean operator shell no `SENTIN8_*` plane var is
  * exported while `dotenvy`'s walk-up from THIS repo stops at the
- * vertical group's DSN-only `bank8/.env` — never reaching the tree-root
+ * vertical group's DSN-only `bank8/.env` - never reaching the tree-root
  * `.env`. So the suite passes the plane paths explicitly, derived from
  * the same absolute TREE_ROOT it already anchors the CLI binary on
  * (each var stays overridable through the operator environment).
@@ -63,7 +63,7 @@ function planeEnv(): Record<string, string> {
   // the aggregation root). SENTIN8_ACME_DATA_DIR is deliberately NOT
   // derived: it is machine-level state (root .env pins it to the user's
   // `~/.sentin8/acme`), and the CLI already derives a working default
-  // when it is absent — the trust anchor itself rides SENTIN8_TLS_CA_PEM.
+  // when it is absent - the trust anchor itself rides SENTIN8_TLS_CA_PEM.
   const derived: Record<string, string> = {
     SENTIN8_RUN_DIR: `${TREE_ROOT}/.run`,
     SENTIN8_LOG_DIR: `${TREE_ROOT}/.run/logs`,
@@ -71,7 +71,7 @@ function planeEnv(): Record<string, string> {
     SENTIN8_M2M_CREDENTIALS_DIR: `${TREE_ROOT}/.run/secrets/m2m-credentials`,
     SENTIN8_TLS_CA_PEM: `${TREE_ROOT}/.run/secrets/acme-ca/root-ca.crt`,
     // The CLI's dotenvy walk-up stops at this group's DSN-only `bank8/.env`,
-    // never reaching the tree-root `.env` — without this the CLI falls back
+    // never reaching the tree-root `.env` - without this the CLI falls back
     // to its built-in domain and every API call 404s/dns-fails (fixtures/env.ts
     // pins the real value).
     SENTIN8_DOMAIN: platformDomain(),
@@ -99,7 +99,7 @@ export async function runCli(
   return new Promise((resolve, reject) => {
     const env = { ...planeEnv(), ...process.env, HOME: CLI_HOME, ...opts.env };
     const cmdLine = `${CLI_BIN} ${args.join(' ')}`;
-    // Log EVERY cli invocation — one line per call, with a marker so
+    // Log EVERY cli invocation - one line per call, with a marker so
     // failures are easy to spot in the transcript.
     logStep(`[cli $] ${cmdLine}`);
     const child: ChildProcess = spawn(CLI_BIN, args, {
@@ -127,14 +127,14 @@ export async function runCli(
         stderr: stderr.trim(),
         cmdLine,
       };
-      // Result line — exit code + first stderr line on failure.
+      // Result line - exit code + first stderr line on failure.
       if (result.exitCode === 0) {
         logStep(`[cli =] exit=0 ${shortCmd(cmdLine)}`);
       } else {
         const errFirst = result.stderr.split('\n').find((l) => l.trim()) ?? '';
-        logStep(`[cli !] exit=${result.exitCode} ${shortCmd(cmdLine)} — ${errFirst}`);
+        logStep(`[cli !] exit=${result.exitCode} ${shortCmd(cmdLine)} - ${errFirst}`);
       }
-      // Try to parse JSON — the CLI prints a "sentin8-cli v0.1.0" banner to
+      // Try to parse JSON - the CLI prints a "sentin8-cli v0.1.0" banner to
       // stdout BEFORE the JSON body, so skip to the first `{`/`[` that
       // starts a line and parse from there to the end.
       const trimmed = result.stdout.trim();
@@ -144,7 +144,7 @@ export async function runCli(
         try {
           result.json = JSON.parse(trimmed.slice(jsonStart));
         } catch {
-          // not pure JSON — leave json undefined
+          // not pure JSON - leave json undefined
         }
       }
       resolve(result);
@@ -217,7 +217,7 @@ export async function cliWhoami(): Promise<CliResult> {
  * §5.1). Any `authorize_org`-gated call fired within that window fails
  * with 403 "not a member of this organization"; Shield policy may
  * similarly deny with "forbidden by policy" while roles are still
- * resolving. Both are transient — a retry after provisioning completes
+ * resolving. Both are transient - a retry after provisioning completes
  * succeeds.
  */
 function isTransientCliDeny(result: CliResult): boolean {
@@ -233,7 +233,7 @@ function isTransientCliDeny(result: CliResult): boolean {
 /**
  * Retry a `cliCall` while it fails with a transient deny (see
  * isTransientCliDeny). Polls until success, a non-transient failure, or
- * the deadline — then returns the LAST result so callers can assert on
+ * the deadline - then returns the LAST result so callers can assert on
  * it with full stdout/stderr context.
  *
  * Mirrors `cliCallSettled` in the sentin8 e2e suite (§3.1d-1 "cached
@@ -252,7 +252,7 @@ export async function cliCallSettled(
   const deadline = Date.now() + timeoutMs;
   let last = await cliCall(service, method, path, body, envId);
   while (isTransientCliDeny(last) && Date.now() < deadline) {
-    logStep(`[cli ~] transient deny — retrying ${shortCmd(last.cmdLine)} in ${intervalMs}ms`);
+    logStep(`[cli ~] transient deny - retrying ${shortCmd(last.cmdLine)} in ${intervalMs}ms`);
     await new Promise((r) => setTimeout(r, intervalMs));
     last = await cliCall(service, method, path, body, envId);
   }
@@ -277,7 +277,7 @@ export async function cliDoSettled(
   const deadline = Date.now() + timeoutMs;
   let last = await cliDo(command, subcommand, action, fields, { env: opts.env });
   while (isTransientCliDeny(last) && Date.now() < deadline) {
-    logStep(`[cli ~] transient deny — retrying ${shortCmd(last.cmdLine)} in ${intervalMs}ms`);
+    logStep(`[cli ~] transient deny - retrying ${shortCmd(last.cmdLine)} in ${intervalMs}ms`);
     await new Promise((r) => setTimeout(r, intervalMs));
     last = await cliDo(command, subcommand, action, fields, { env: opts.env });
   }
@@ -288,7 +288,7 @@ export async function cliDoSettled(
  * Force a token refresh by calling the auth refresh endpoint directly.
  *
  * Needed after the user gains new roles (e.g. org:admin after creating an
- * org) — the stored access token is still valid but carries the old
+ * org) - the stored access token is still valid but carries the old
  * (pre-org-creation) scope set. A refresh re-computes role scopes
  * server-side via fetch_role_scopes and returns an updated token.
  *
@@ -310,7 +310,7 @@ export async function cliRefreshToken(): Promise<void> {
     throw new Error('cliRefreshToken: no refresh token in credentials');
   }
   // Disable TLS verification for the local self-signed CA (same approach
-  // as the platform suite's cli.ts — the Acme root is trusted by the CLI
+  // as the platform suite's cli.ts - the Acme root is trusted by the CLI
   // via SENTIN8_TLS_CA_PEM, but Node's fetch needs this bypass locally).
   const prevTls = process.env.NODE_TLS_REJECT_UNAUTHORIZED;
   process.env.NODE_TLS_REJECT_UNAUTHORIZED = '0';
@@ -356,13 +356,13 @@ export async function cliRefreshToken(): Promise<void> {
  * verify), and polls `POST /oauth/token` for the token. Writes credentials
  * to ~/.sentin8/credentials.
  *
- * The CLI stores a single set of credentials — bank8 globalSetup signs in
+ * The CLI stores a single set of credentials - bank8 globalSetup signs in
  * as the platform operator (Bill) who owns org creation. Staff users
  * (Ben, Bob) are created via the CLI *as* Bill, then sign in through
  * their apps' UI in the tests.
  */
 export async function cliSignIn(email: string, password: string): Promise<void> {
-  // Sign up first (idempotent — non-zero exit just means the user exists).
+  // Sign up first (idempotent - non-zero exit just means the user exists).
   await runCli([
     'signup', '--email', email, '--password', password,
     '--first-name', 'Test', '--last-name', 'Operator',
@@ -373,7 +373,7 @@ export async function cliSignIn(email: string, password: string): Promise<void> 
   process.env.NODE_TLS_REJECT_UNAUTHORIZED = '0';
 
   try {
-    // 1. Request a device code — endpoint is POST /oauth/device (see
+    // 1. Request a device code - endpoint is POST /oauth/device (see
     //    sentin8/cmd/cli/src/auth.rs:95).
     const startResp = await fetch(`${Auth8URL}/oauth/device`, {
       method: 'POST',
@@ -406,7 +406,7 @@ export async function cliSignIn(email: string, password: string): Promise<void> 
       throw new Error(`cliSignIn: sign-in failed: HTTP ${signInResp.status} ${await signInResp.text()}`);
     }
     const signInData = await signInResp.json() as { user_id: string; token: string };
-    // SEC-2.1.4 — device verification requires a session; the approving
+    // SEC-2.1.4 - device verification requires a session; the approving
     // user comes from the session token, not the request body.
     await fetch(`${Auth8URL}/device/verify`, {
       method: 'POST',
@@ -417,7 +417,7 @@ export async function cliSignIn(email: string, password: string): Promise<void> 
       body: JSON.stringify({ user_code: deviceData.user_code }),
     });
 
-    // 3. Poll for the token — 1s interval.
+    // 3. Poll for the token - 1s interval.
     const startTime = Date.now();
     const maxWait = (deviceData.expires_in ?? 900) * 1000;
     while (Date.now() - startTime < maxWait) {
@@ -485,7 +485,7 @@ function shortCmd(cmdLine: string): string {
 /** Assert the CLI command succeeded (exit code 0). */
 export function assertCliOk(result: CliResult, context?: string): void {
   if (result.exitCode !== 0) {
-    // The [cli !] result line is already logged by runCli — here we fail
+    // The [cli !] result line is already logged by runCli - here we fail
     // with full stdout/stderr for debugging.
     throw new Error(
       `CLI command failed${context ? ` (${context})` : ''}: exit=${result.exitCode}\n` +

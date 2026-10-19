@@ -5,7 +5,7 @@
 
 // tests/suite6_tenant_resolution_enforcement.spec.ts
 //
-// Suite 6 — Tenant Resolution Enforcement — stories 15.2.6 + 15.2.11.
+// Suite 6 - Tenant Resolution Enforcement - stories 15.2.6 + 15.2.11.
 //
 // Mirrors e2e/suites/suite06_tenant_resolution_test.go.  Verifies
 // that the Sentin8:Auth server:
@@ -19,7 +19,7 @@ import { APIClient, Auth8URL, tenantAuthURL, tenantAppURL, TENANT_DOMAINS, logSt
 
 const httpClient = new APIClient({ baseURL: '', insecure: true });
 
-test.describe('Suite 6 — Tenant Resolution Enforcement', () => {
+test.describe('Suite 6 - Tenant Resolution Enforcement', () => {
   test('T1 POST /oauth/token without body returns 400', async () => {
     logStep('[suite6] T1: POST /oauth/token without body → expect 400');
     const r = await httpClient.postForm(`${Auth8URL}/oauth/token`, {});

@@ -3,7 +3,7 @@
 // SPDX-FileCopyrightText: Copyright Contributors to the Bank8:E2E
 // SPDX-License-Identifier: Apache-2.0
 
-// fixtures/state.ts — cross-suite state shared via .e2e-state.json.
+// fixtures/state.ts - cross-suite state shared via .e2e-state.json.
 //
 // Mirrors fixtures/state.go from the Go playwright-go suite.
 // Suites write their outputs here (listing IDs, org/env IDs, cookies)
@@ -26,11 +26,11 @@ const STATE_CANDIDATES = [
 ];
 
 export interface E2EState {
-  // Suite 1 — App Store / catalog
+  // Suite 1 - App Store / catalog
   ebankListingId?: string;
   efintechListingId?: string;
 
-  // Suite 2 — iBank end-to-end
+  // Suite 2 - iBank end-to-end
   ibankOrgId?: string;
   ibankEnvId?: string;
   ibankOrgSlug?: string;
@@ -44,7 +44,7 @@ export interface E2EState {
   carolEmail?: string;
   ebankAccountIds?: string[];
 
-  // Suite 3 — iFintech end-to-end
+  // Suite 3 - iFintech end-to-end
   ifintechOrgId?: string;
   ifintechEnvId?: string;
   ifintechOrgSlug?: string;

@@ -5,7 +5,7 @@
 
 // tests/bank8_lifecycle.spec.ts
 //
-// Bank8 vertical lifecycle e2e — platform setup happens ONCE in
+// Bank8 vertical lifecycle e2e - platform setup happens ONCE in
 // global-setup.ts via the sentin8-cli binary (org/env/features/app
 // instances/staff users). This spec drives ONLY the four bank8 apps
 // through the browser, exactly like a real user:
@@ -19,7 +19,7 @@
 //      seeing her iBank accounts.
 //
 // Dash tests (operator onboarding, playground routes) live in the
-// sentin8 e2e suite — the bank8 suite never opens Dash.
+// sentin8 e2e suite - the bank8 suite never opens Dash.
 
 import { test, expect, type BrowserContext, type Page } from '@playwright/test';
 import { readFileSync } from 'node:fs';
@@ -65,15 +65,15 @@ interface TestMeta {
 
 /**
  * TLS cert-warmup for the vertical service TENANT routes
- * ({service}.{env}.{org-domain}) — the admin UI reaches ledger/payments/
+ * ({service}.{env}.{org-domain}) - the admin UI reaches ledger/payments/
  * fdx/… through the BFF proxy, whose forward client TLS-connects to those
  * hosts. Services mint their on-demand Acme leaf on the FIRST hit and the
  * BFF's connect can lose that race (surfacing as a 502 "error sending
  * request" while the upstream logs "cert registered on-demand" ~70ms
- * later — the same race the browser absorbs via gotoCertWarm).
+ * later - the same race the browser absorbs via gotoCertWarm).
  *
  * One unauthenticated GET per service route; ANY verdict (401/403/404/200)
- * completes the mint. Bounded: total poll window ~15s, then give up —
+ * completes the mint. Bounded: total poll window ~15s, then give up -
  * first use in the tests re-triggers the mint anyway.
  */
 async function warmTenantServiceRoutes(meta: TestMeta, orgDomain: string): Promise<void> {
@@ -82,7 +82,7 @@ async function warmTenantServiceRoutes(meta: TestMeta, orgDomain: string): Promi
   try {
     const deadline = Date.now() + 15_000;
     let warmed = false;
-    // One representative route per service family — ledger's admin-ui route
+    // One representative route per service family - ledger's admin-ui route
     // is the first one the admin UI drives; warming it warms the shared
     // on-demand cert path for the rest (same org/env suffix mints fine).
     const routes = [
@@ -92,16 +92,16 @@ async function warmTenantServiceRoutes(meta: TestMeta, orgDomain: string): Promi
       for (const url of routes) {
         try {
           const resp = await fetch(url, { signal: AbortSignal.timeout(3_000) });
-          // ANY HTTP verdict means TLS is live — the mint completed.
+          // ANY HTTP verdict means TLS is live - the mint completed.
           if (resp.status > 0) { warmed = true; break; }
         } catch {
-          // Not minted yet — retry below.
+          // Not minted yet - retry below.
         }
       }
       if (!warmed) await new Promise((r) => setTimeout(r, 500));
     }
     if (warmed) logStep('[lifecycle] tenant service routes TLS-warmed');
-    else logStep('[lifecycle] ⚠️ tenant service route warmup window elapsed — first call may race the mint');
+    else logStep('[lifecycle] ⚠️ tenant service route warmup window elapsed - first call may race the mint');
   } finally {
     if (prev === undefined) delete process.env.NODE_TLS_REJECT_UNAUTHORIZED;
     else process.env.NODE_TLS_REJECT_UNAUTHORIZED = prev;
@@ -118,7 +118,7 @@ const PAUSE_ON_STEP = process.env.PAUSE_ON_STEP ?? '';
 /**
  * Clear the auth rate-limit Valkey keys (auth uses DB 1). Repeated staff
  * sign-ins during e2e runs trip bot protection (10/min per IP, 5/min per
- * email) with a generic "Invalid email or password"-looking failure — clear
+ * email) with a generic "Invalid email or password"-looking failure - clear
  * before each staff sign-in.
  */
 function clearAuthRateLimits(email: string): void {
@@ -128,7 +128,7 @@ function clearAuthRateLimits(email: string): void {
       { stdio: 'pipe', timeout: 2_000 },
     );
   } catch {
-    // Best-effort — limiter may be disabled in this deployment.
+    // Best-effort - limiter may be disabled in this deployment.
   }
   logStep(`[lifecycle] cleared auth rate limits (for ${email})`);
 }
@@ -139,7 +139,7 @@ async function maybePause(page: Page, stepTitle: string): Promise<void> {
   await page.pause();
 }
 
-test.describe('Bank8 Lifecycle — Admin + eBank + eTeller + eFintech', () => {
+test.describe('Bank8 Lifecycle - Admin + eBank + eTeller + eFintech', () => {
   let context: BrowserContext;
   let page: Page;
   let meta: TestMeta;
@@ -156,7 +156,7 @@ test.describe('Bank8 Lifecycle — Admin + eBank + eTeller + eFintech', () => {
     page.on('requestfailed', (r) =>
       console.log('[requestfailed]', r.url().slice(0, 140), '=>', r.failure()?.errorText));
     page.on('response', (r) => { if (r.status() >= 500) console.log('[http-5xx]', r.status(), r.url().slice(0, 140)); });
-    // TLS cert-warmup for the vertical service tenant routes — the BFF's
+    // TLS cert-warmup for the vertical service tenant routes - the BFF's
     // forward client races the upstream's on-demand Acme leaf on the
     // first hit of a fresh run (see warmTenantServiceRoutes).
     await warmTenantServiceRoutes(meta, meta.ibankOrgDomain);
@@ -167,14 +167,14 @@ test.describe('Bank8 Lifecycle — Admin + eBank + eTeller + eFintech', () => {
   });
 
   // ═══════════════════════════════════════════════════════════════════════
-  // Bank8:Admin — Ben (staff SSO) creates ledger products
+  // Bank8:Admin - Ben (staff SSO) creates ledger products
   // ═══════════════════════════════════════════════════════════════════════
 
   test('1. Ben signs in to Bank8:Admin (staff SSO) and creates ledger products', async () => {
     await maybePause(page, '1.');
     logStep('[lifecycle] 1 start: Ben signs in to Bank8:Admin via staff SSO and creates products');
 
-    // IMPORTANT: use the emails persisted by globalSetup — Personas compute
+    // IMPORTANT: use the emails persisted by globalSetup - Personas compute
     // RUN_ID at module-load time, which differs per worker (globalSetup ran
     // in its own process with its own timestamp). Ben was created by
     // globalSetup with THAT run's email.
@@ -187,11 +187,11 @@ test.describe('Bank8 Lifecycle — Admin + eBank + eTeller + eFintech', () => {
     await page.waitForTimeout(500);
 
     // If not already signed in (SSO via shared cookie), sign in via staff auth.
-    // FAIL FAST: each step must succeed — no silent catch-and-continue.
+    // FAIL FAST: each step must succeed - no silent catch-and-continue.
     const texts = await getFlutterTexts(page);
     const alreadySignedIn = texts.some((t) => t.includes('Overview') || t.includes('Ledger'));
     if (!alreadySignedIn) {
-      logStep('[lifecycle] 1 step: not signed in — signing in via staff auth');
+      logStep('[lifecycle] 1 step: not signed in - signing in via staff auth');
       await clickFlutterButton(page, 'Staff Sign In');
       await page.waitForTimeout(500);
 
@@ -202,7 +202,7 @@ test.describe('Bank8 Lifecycle — Admin + eBank + eTeller + eFintech', () => {
       await signInOnAuth8(page, ben.email, ben.password!);
       await page.waitForTimeout(1_000);
 
-      // Verify the sign-in actually landed on the admin app — fail fast
+      // Verify the sign-in actually landed on the admin app - fail fast
       // with the page content if it did not. POLL for the dashboard: the
       // app boots over the OAuth callback chain, so a single read 1s after
       // the submit races the Flutter render (observed: page text still
@@ -231,7 +231,7 @@ test.describe('Bank8 Lifecycle — Admin + eBank + eTeller + eFintech', () => {
     logStep('[lifecycle] 1 step: Bank8:Admin loaded');
 
     // Navigate to Ledger > Products via sidebar. "Ledger" is an
-    // ExpansionTile — click to expand, then click "Products".
+    // ExpansionTile - click to expand, then click "Products".
     // FAIL FAST: if the sidebar never shows Products, fail with page text.
     let productsVisible = false;
     for (let attempt = 0; attempt < 3; attempt++) {
@@ -274,7 +274,7 @@ test.describe('Bank8 Lifecycle — Admin + eBank + eTeller + eFintech', () => {
           createClicked = true;
           break;
         } catch {
-          logStep(`[lifecycle] 1 step: Create Product not found (attempt ${attempt + 1}/3) — re-navigating via hash`);
+          logStep(`[lifecycle] 1 step: Create Product not found (attempt ${attempt + 1}/3) - re-navigating via hash`);
           await page.evaluate(() => {
             history.replaceState(null, '', '#/ledger/products');
             window.dispatchEvent(new Event('hashchange'));
@@ -296,7 +296,7 @@ test.describe('Bank8 Lifecycle — Admin + eBank + eTeller + eFintech', () => {
           typeSelected = true;
           break;
         } catch {
-          logStep(`[lifecycle] 1 step: Select Product Type not found (attempt ${attempt + 1}/3) — retrying`);
+          logStep(`[lifecycle] 1 step: Select Product Type not found (attempt ${attempt + 1}/3) - retrying`);
           await page.waitForTimeout(1000);
         }
       }
@@ -313,7 +313,7 @@ test.describe('Bank8 Lifecycle — Admin + eBank + eTeller + eFintech', () => {
       await typeFlutterField(page, 'Product Name', p.name);
       await page.waitForTimeout(100);
 
-      // Click the form submit button — the last "Create Product" button on
+      // Click the form submit button - the last "Create Product" button on
       // the page (form submit, not the header action). Scroll into view if
       // needed (Flutter SingleChildScrollView).
       await page.evaluate(() => {
@@ -367,7 +367,7 @@ test.describe('Bank8 Lifecycle — Admin + eBank + eTeller + eFintech', () => {
       await page.waitForTimeout(1000);
 
       // FAIL FAST: a submit that did nothing (policy denial, validation
-      // error, silent no-op) must abort the test here — NOT three steps
+      // error, silent no-op) must abort the test here - NOT three steps
       // later when test 3's account-open can't find the product. Scan the
       // UI for error toasts right after the submit.
       const postSubmitTexts = await getFlutterTexts(page);
@@ -375,7 +375,7 @@ test.describe('Bank8 Lifecycle — Admin + eBank + eTeller + eFintech', () => {
         /forbidden|unauthorized|authorization failed|failed by policy|denied|creation failed|error:/i.test(t));
       if (uiError) {
         throw new Error(
-          `Product "${p.name}" was NOT created — UI reported: "${uiError}". ` +
+          `Product "${p.name}" was NOT created - UI reported: "${uiError}". ` +
           `Page: ${postSubmitTexts.slice(0, 15).join(' | ')}`);
       }
 
@@ -389,7 +389,7 @@ test.describe('Bank8 Lifecycle — Admin + eBank + eTeller + eFintech', () => {
       await page.waitForTimeout(500);
 
       // FAIL FAST: the product MUST be listed on the products page before
-      // the loop continues — a silent no-op submit is a failure, not a skip.
+      // the loop continues - a silent no-op submit is a failure, not a skip.
       // A FULL page reload (not a hash swap) on retry: a hash-only re-render
       // reuses the app's cached HTTP connections, so a dropped keep-alive
       // socket surfaces as "TypeError: Failed to fetch" forever; a reload
@@ -402,7 +402,7 @@ test.describe('Bank8 Lifecycle — Admin + eBank + eTeller + eFintech', () => {
           productListed = true;
           break;
         }
-        logStep(`[lifecycle] 1 step: product "${p.name}" not listed yet (attempt ${attempt + 1}/3) — reloading page`);
+        logStep(`[lifecycle] 1 step: product "${p.name}" not listed yet (attempt ${attempt + 1}/3) - reloading page`);
         await page.evaluate(() => {
           history.replaceState(null, '', '#/ledger/products');
         });
@@ -412,7 +412,7 @@ test.describe('Bank8 Lifecycle — Admin + eBank + eTeller + eFintech', () => {
       }
       if (!productListed) {
         throw new Error(
-          `Product "${p.name}" was not created — absent from the products list after 3 checks. ` +
+          `Product "${p.name}" was not created - absent from the products list after 3 checks. ` +
           `Page: ${lastListTexts.slice(0, 15).join(' | ')}`);
       }
 
@@ -423,13 +423,13 @@ test.describe('Bank8 Lifecycle — Admin + eBank + eTeller + eFintech', () => {
   });
 
   // ═══════════════════════════════════════════════════════════════════════
-  // eBank — Alice (customer) signs up and opens accounts
+  // eBank - Alice (customer) signs up and opens accounts
   // ═══════════════════════════════════════════════════════════════════════
 
   test('2. Alice signs up as iBank customer via eBank', async () => {
     await maybePause(page, '2.');
     logStep('[lifecycle] 2 start: Alice signs up as iBank customer');
-    // meta emails come from the globalSetup that JUST ran in this process —
+    // meta emails come from the globalSetup that JUST ran in this process -
     // Personas' module-level RUN_ID can drift on worker retry (known issue).
     const alice = { email: meta.aliceEmail, firstName: Personas.alice.firstName, lastName: Personas.alice.lastName, password: Personas.alice.password! };
     const appURL = `https://${meta.ebankHostname}`;
@@ -471,10 +471,10 @@ test.describe('Bank8 Lifecycle — Admin + eBank + eTeller + eFintech', () => {
   });
 
   // ═══════════════════════════════════════════════════════════════════════
-  // eTeller — Bob (teller staff) signs in and finds Alice
+  // eTeller - Bob (teller staff) signs in and finds Alice
   // ═══════════════════════════════════════════════════════════════════════
 
-  test('4. Bob serves Alice at eTeller — CIBA delegation + cash deposit', async () => {
+  test('4. Bob serves Alice at eTeller - CIBA delegation + cash deposit', async () => {
     await maybePause(page, '4.');
     logStep('[lifecycle] 4 start: Bob signs in to eTeller, finds Alice, CIBA delegation, $500 cash deposit');
 
@@ -487,17 +487,17 @@ test.describe('Bank8 Lifecycle — Admin + eBank + eTeller + eFintech', () => {
     // eTeller. The old signOutViaUI was a silent no-op here (eTeller had
     // no test bridge) and a stale BFF session cookie auto-SSO'd the app
     // past the landing page (run32: Alice's eBank session leaked into the
-    // teller session — incident 2026-08-28). With the platform fixes
+    // teller session - incident 2026-08-28). With the platform fixes
     // (per-app cookie scope + session↔app binding) a foreign cookie is
     // rejected anyway; clearing makes the sign-in path deterministic.
     await context.clearCookies();
-    // Cookie clearing does NOT navigate — the page would otherwise stay on
+    // Cookie clearing does NOT navigate - the page would otherwise stay on
     // the previous app's domain (eBank) with its UI fully rendered, and
     // every later "Staff Sign In" / eTeller check below would inspect the
     // WRONG app. Navigate to the teller host deterministically.
     await gotoCertWarm(page, tellerURL);
     // The sign-out/redirect can leave the new page blank (the SPA unmounts
-    // before the new document loads) — poll for semantics instead of a
+    // before the new document loads) - poll for semantics instead of a
     // single wait, and re-goto when the page stays blank.
     let landingReady = false;
     for (let attempt = 0; attempt < 4 && !landingReady; attempt++) {
@@ -535,9 +535,9 @@ test.describe('Bank8 Lifecycle — Admin + eBank + eTeller + eFintech', () => {
       // After SSO redirect back, verify the shell actually loaded with a
       // session (nav + Dashboard), not the landing page again. The teller
       // shell's dashboard shows "Welcome, <name> teller" + the Quick
-      // Actions nav; 'Customer Search' only appears after navigating —
+      // Actions nav; 'Customer Search' only appears after navigating -
       // detect the dashboard state, not a specific page. The text
-      // extraction races the semantics render — poll briefly before
+      // extraction races the semantics render - poll briefly before
       // declaring failure.
       await waitForFlutterSemantics(page, 2_000);
       let signedInNow = false;
@@ -551,22 +551,22 @@ test.describe('Bank8 Lifecycle — Admin + eBank + eTeller + eFintech', () => {
           await waitForFlutterSemantics(page, 1_500);
         }
       }
-      expect(signedInNow, `Bob must be signed in to eTeller — landing page still shown? Page: ${afterTexts.slice(0, 10).join(' | ')}`).toBe(true);
+      expect(signedInNow, `Bob must be signed in to eTeller - landing page still shown? Page: ${afterTexts.slice(0, 10).join(' | ')}`).toBe(true);
     }
 
     await waitForFlutterSemantics(page, 2_000);
 
-    // FAIL FAST: a Bootstrap error means the eTeller runtime context 404'd —
+    // FAIL FAST: a Bootstrap error means the eTeller runtime context 404'd -
     // an app provisioning bug, not a test problem.
     const tellerTexts = await getFlutterTexts(page);
     const tellerAll = tellerTexts.join(' ');
     expect(tellerAll, `eTeller must load its UI (url=${page.url()}). Page: ${tellerTexts.slice(0, 12).join(' | ')}`).toContain('eTeller');
     logStep('[lifecycle] 4 step: Bob signed in to eTeller');
 
-    // F-D — IDENTITY assertion (fail-fast): verify the session actually
+    // F-D - IDENTITY assertion (fail-fast): verify the session actually
     // belongs to Bob via the BFF /auth/session endpoint (same call the
     // app made). Run32 silently operated as Alice (cross-app session
-    // replay — incident 2026-08-28); this assertion turns any wrong-user
+    // replay - incident 2026-08-28); this assertion turns any wrong-user
     // session into a hard failure instead of a silently wrong journey.
     const sessionResp = await page.request.get(`https://bff.${meta.etellerHostname}/auth/session`, { failOnStatusCode: false });
     expect(sessionResp.status(), 'eTeller BFF session must exist for Bob').toBe(200);
@@ -574,7 +574,7 @@ test.describe('Bank8 Lifecycle — Admin + eBank + eTeller + eFintech', () => {
     const sessionEmail: string = sessionJson?.user?.email ?? '';
     expect(
       sessionEmail,
-      `eTeller session identity must be Bob (${meta.bobEmail}) — got '${sessionEmail}'. Wrong-user session (silent SSO / replay?)`,
+      `eTeller session identity must be Bob (${meta.bobEmail}) - got '${sessionEmail}'. Wrong-user session (silent SSO / replay?)`,
     ).toBe(meta.bobEmail);
     logStep(`[lifecycle] 4 step: session identity verified: ${sessionEmail}`);
 
@@ -597,7 +597,7 @@ test.describe('Bank8 Lifecycle — Admin + eBank + eTeller + eFintech', () => {
     logStep('[lifecycle] 4 step: delegation choice page shown');
     // The assisted-login flow returns a verification link that this same
     // browser can visit to play the customer role (CIBA decoupled approval).
-    await clickFlutterButton(page, 'Assisted Login — Send link to customer');
+    await clickFlutterButton(page, 'Assisted Login - Send link to customer');
     await page.waitForTimeout(500);
 
     await waitForFlutterText(page, 'Link: https://', 5_000);
@@ -614,7 +614,7 @@ test.describe('Bank8 Lifecycle — Admin + eBank + eTeller + eFintech', () => {
     await gotoCertWarm(page, verificationUrl);
     await waitForFlutterSemantics(page, 2_000);
     // The assisted-login page: if Alice already has a session on this Auth
-    // (she signed in to eBank earlier — same platform Auth), a Confirm button
+    // (she signed in to eBank earlier - same platform Auth), a Confirm button
     // appears; otherwise sign in first. Handle both.
     const assistTexts = await getFlutterTexts(page);
     if (assistTexts.some((t) => t.includes('Confirm'))) {
@@ -631,12 +631,12 @@ test.describe('Bank8 Lifecycle — Admin + eBank + eTeller + eFintech', () => {
     await waitForFlutterText(page, 'You are authenticated', 5_000);
     logStep('[lifecycle] 4 step: Alice approved the CIBA request');
 
-    // ── Step 4: back to eTeller — delegation approved ───────────────────
+    // ── Step 4: back to eTeller - delegation approved ───────────────────
     await gotoCertWarm(page, tellerURL);
     await waitForFlutterSemantics(page, 2_000);
     await page.waitForTimeout(1_000);
     // After the reload the shell restores the delegation from sessionStorage
-    // (§3.0.3a) — poll until the sidebar shows the delegated customer
+    // (§3.0.3a) - poll until the sidebar shows the delegated customer
     // ("Customer: <name>" is rendered ONLY when _hasDelegation=true), then
     // navigate. Dashboard quick-action tiles also say "Cash Deposit", so a
     // text-only check would race the restore.
@@ -652,17 +652,17 @@ test.describe('Bank8 Lifecycle — Admin + eBank + eTeller + eFintech', () => {
         logStep('[lifecycle] 4 step: still waiting for delegation restore');
       }
     }
-    expect(delegationApproved, `eTeller should show customer operations after CIBA approval — url=${page.url()}`).toBe(true);
+    expect(delegationApproved, `eTeller should show customer operations after CIBA approval - url=${page.url()}`).toBe(true);
     logStep('[lifecycle] 4 step: eTeller shows customer operations (delegation active)');
 
-    // ── Step 5: Cash Deposit — $500 into Alice's Savings ────────────────
+    // ── Step 5: Cash Deposit - $500 into Alice's Savings ────────────────
     await clickFlutterButton(page, 'Cash Deposit');
     await waitForFlutterSemantics(page, 2_000);
     await waitForFlutterText(page, 'Cash Deposit', 3_000);
     logStep('[lifecycle] 4 step: on Cash Deposit page');
 
-    // §3.1.1 — account options are ALWAYS-VISIBLE choice cards (overlay
-    // menus — Autocomplete AND DropdownButton — are invisible to
+    // §3.1.1 - account options are ALWAYS-VISIBLE choice cards (overlay
+    // menus - Autocomplete AND DropdownButton - are invisible to
     // flt-semantics). The page loads accounts asynchronously; poll for the
     // Savings card and click it.
     const cardDeadline = Date.now() + 8_000;
@@ -678,11 +678,11 @@ test.describe('Bank8 Lifecycle — Admin + eBank + eTeller + eFintech', () => {
     // Resolve the FULL Savings account id through the eTeller BFF proxy
     // with Bob's delegated session (isolation-design §8/§10.1: platform-
     // operator tokens are env-locked out of tenant customer accounts, so
-    // the CLI-as-Bill list correctly returns [] — resolve via the same
+    // the CLI-as-Bill list correctly returns [] - resolve via the same
     // call the app's fetchAllAccounts makes; the BFF stamps the CIBA
-    // delegation). Requires the X-BFF-Delegation header (§4.3f Option A —
+    // delegation). Requires the X-BFF-Delegation header (§4.3f Option A -
     // without it the proxy falls through to the staff token, which sees
-    // no customer accounts) — the app persists the delegation id in
+    // no customer accounts) - the app persists the delegation id in
     // sessionStorage under `eteller.delegation_id`.
     const delegationId = await page.evaluate(() => sessionStorage.getItem('eteller.delegation_id'));
     expect(delegationId, 'eTeller delegation id must be persisted in sessionStorage after CIBA approval').toBeTruthy();
@@ -725,7 +725,7 @@ test.describe('Bank8 Lifecycle — Admin + eBank + eTeller + eFintech', () => {
     // The UI success message alone is NOT proof: the audit-INSERT arity bug
     // rolled back every posting tx server-side while the UI reported
     // success. Assert the server-side committed balance via the delegated
-    // BFF proxy session (read-your-writes) before the test may pass — the
+    // BFF proxy session (read-your-writes) before the test may pass - the
     // CLI-as-operator path is env-locked out of tenant customer data
     // (isolation-design §8/§10.1).
     const balRes = await page.request.get(`${tellerBffBase}/proxy/bank8-ledger/v1/accounts/${savingsAccountId}/balances`, {
@@ -744,7 +744,7 @@ test.describe('Bank8 Lifecycle — Admin + eBank + eTeller + eFintech', () => {
   });
 
   // ═══════════════════════════════════════════════════════════════════════
-  // eBank — Alice checks her accounts
+  // eBank - Alice checks her accounts
   // ═══════════════════════════════════════════════════════════════════════
 
   test('5. Alice signs in to eBank and checks her accounts', async () => {
@@ -774,7 +774,7 @@ test.describe('Bank8 Lifecycle — Admin + eBank + eTeller + eFintech', () => {
     ).toBe(true);
 
     // ── Tenant-isolation canary (ledger design §5/§9): Alice must see
-    // ONLY her own accounts — no internal counterparty accounts and no
+    // ONLY her own accounts - no internal counterparty accounts and no
     // other tenant's data. The holder-scoped RLS + the service-layer
     // customer filter must guarantee the negative assertions below.
     const ownAccounts = ['iBank Checking', 'iBank Savings', 'iBank Credit Card'];
@@ -788,22 +788,22 @@ test.describe('Bank8 Lifecycle — Admin + eBank + eTeller + eFintech', () => {
     const isoJson = (isoBody['data'] ?? isoBody) as { accounts?: Array<{ id: string; nickname?: string; account_type?: string }>; data?: Array<{ id: string; nickname?: string; account_type?: string }> };
     const isoAccounts = isoJson.accounts ?? isoJson.data ?? (Array.isArray(isoJson) ? isoJson : []);
     expect(isoAccounts.length, `Alice must see at least her 3 opened accounts (got ${isoAccounts.length})`).toBeGreaterThanOrEqual(3);
-    // (a) NO internal accounts — counterparty plumbing is invisible to
+    // (a) NO internal accounts - counterparty plumbing is invisible to
     // holders regardless of query params (isolation-design §10.1).
     const internalLeak = isoAccounts.filter((a) => a.account_type === 'internal');
     expect(internalLeak, `isolation violation: internal accounts leaked to a customer token (${internalLeak.map((a) => a.nickname).join(',')})`).toHaveLength(0);
-    // (b) NO cross-env data — every row belongs to Alice's env; the
+    // (b) NO cross-env data - every row belongs to Alice's env; the
     // customer rows visible are exactly hers (the seeded institution
     // customer's internal accounts never appear under any filter).
     const foreignInternal = isoAccounts.filter((a) => (a.nickname ?? '').includes('_account') && a.account_type !== 'customer');
     expect(foreignInternal, `isolation violation: non-customer accounts in a customer's list (${foreignInternal.map((a) => a.nickname).join(',')})`).toHaveLength(0);
-    logStep('[lifecycle] 5 step: isolation canary passed — customer sees only own customer-type accounts');
+    logStep('[lifecycle] 5 step: isolation canary passed - customer sees only own customer-type accounts');
 
     logStep('[lifecycle] 5 done: Alice checked eBank accounts');
   });
 
   // ═══════════════════════════════════════════════════════════════════════
-  // eFintech — Alice completes the FDX consent flow
+  // eFintech - Alice completes the FDX consent flow
   // ═══════════════════════════════════════════════════════════════════════
 
   test('6. Alice signs up as eFintech customer and completes FDX consent flow', async () => {
@@ -836,7 +836,7 @@ test.describe('Bank8 Lifecycle — Admin + eBank + eTeller + eFintech', () => {
         break;
       } catch {
         // Re-mount the catalog: navigate to Dashboard, then back to Providers
-        // — each mount re-fetches the provider list through the BFF.
+        // - each mount re-fetches the provider list through the BFF.
         try { await clickFlutterButton(page, 'Dashboard', true); } catch { /* already there */ }
         await page.waitForTimeout(400);
         try { await clickFlutterButton(page, 'Providers', true); } catch { /* nav */ }
@@ -850,10 +850,10 @@ test.describe('Bank8 Lifecycle — Admin + eBank + eTeller + eFintech', () => {
     expect(hasIBank, `this run's provider card (${thisRunProvider}) must appear on the eFintech Providers page`).toBe(true);
     logStep('[lifecycle] 6 step: iBank listed as FDX provider, clicking it');
     // Old-run provider profiles accumulate in fdx_provider_profiles (one per
-    // runId). Click THIS run's provider explicitly — the current run's org
+    // runId). Click THIS run's provider explicitly - the current run's org
     // slug is unique, so the exact-name button targets the right card. The
     // list loads asynchronously and this run's card may render after the
-    // generic "iBank" wait — poll for the exact card (6s) before failing.
+    // generic "iBank" wait - poll for the exact card (6s) before failing.
     let clickedThisRun = false;
     const cardDeadline = Date.now() + 6_000;
     while (Date.now() < cardDeadline && !clickedThisRun) {
@@ -871,7 +871,7 @@ test.describe('Bank8 Lifecycle — Admin + eBank + eTeller + eFintech', () => {
     expect(clickedThisRun, `this run's provider card (${thisRunProvider}) must be clickable`).toBe(true);
     await page.waitForTimeout(500);
 
-    // The detail page opens via Navigator.push — give the Flutter route
+    // The detail page opens via Navigator.push - give the Flutter route
     // transition time to paint before asserting on the button text.
     await waitForFlutterText(page, 'Connect & Authorize', 4_000);
     await clickFlutterButton(page, 'Connect & Authorize');
@@ -892,8 +892,8 @@ test.describe('Bank8 Lifecycle — Admin + eBank + eTeller + eFintech', () => {
       }
       await page.waitForTimeout(500);
     }
-    expect(consentStarted, `FDX consent flow should redirect to iBank Sentin8:Auth — still on ${page.url()}`).toBe(true);
-    logStep('[lifecycle] iBank consent flow started — redirected to provider Sentin8:Auth');
+    expect(consentStarted, `FDX consent flow should redirect to iBank Sentin8:Auth - still on ${page.url()}`).toBe(true);
+    logStep('[lifecycle] iBank consent flow started - redirected to provider Sentin8:Auth');
 
     await signInOnAuth8(page, meta.aliceEmail, Personas.alice.password!);
     logStep('[lifecycle] 6 step: Alice entered iBank Sentin8:Auth credentials');
@@ -925,8 +925,8 @@ test.describe('Bank8 Lifecycle — Admin + eBank + eTeller + eFintech', () => {
       }
       await page.waitForTimeout(500);
     }
-    expect(consentCompleted, `FDX consent flow should complete and redirect back to eFintech — still on ${page.url()}`).toBe(true);
-    logStep('[lifecycle] 6 step: FDX consent completed — redirected back to eFintech app');
+    expect(consentCompleted, `FDX consent flow should complete and redirect back to eFintech - still on ${page.url()}`).toBe(true);
+    logStep('[lifecycle] 6 step: FDX consent completed - redirected back to eFintech app');
 
     // Verify Alice can see her connected iBank accounts.
     await waitForFlutterText(page, 'Accounts', 2_000);
@@ -942,7 +942,7 @@ test.describe('Bank8 Lifecycle — Admin + eBank + eTeller + eFintech', () => {
       const texts = await getFlutterTexts(page);
       const allText = texts.join(' ').toLowerCase();
       if (allText.includes('no accounts yet') || allText.includes('no connected accounts')) {
-        throw new Error(`eFintech Accounts page shows EMPTY state — consent data did not flow. Page: ${texts.slice(0, 15).join(' | ')}`);
+        throw new Error(`eFintech Accounts page shows EMPTY state - consent data did not flow. Page: ${texts.slice(0, 15).join(' | ')}`);
       } else if (allText.includes('checking') || allText.includes('savings') || allText.includes('credit card')) {
         hasAccounts = true;
       } else {
@@ -950,7 +950,7 @@ test.describe('Bank8 Lifecycle — Admin + eBank + eTeller + eFintech', () => {
       }
     }
     expect(hasAccounts, 'eFintech Accounts page should show iBank accounts after consent (not empty state)').toBe(true);
-    logStep('[lifecycle] 6 step: eFintech verified — Alice can see her iBank accounts after FDX consent');
+    logStep('[lifecycle] 6 step: eFintech verified - Alice can see her iBank accounts after FDX consent');
 
     // Verify the consent appears on the Connections page.
     await waitForFlutterText(page, 'Connections', 2_000);
@@ -971,7 +971,7 @@ test.describe('Bank8 Lifecycle — Admin + eBank + eTeller + eFintech', () => {
       }
     }
     expect(hasConsent, 'eFintech Connections page should show the active iBank consent').toBe(true);
-    logStep('[lifecycle] 6 done: eFintech Connections page verified — active iBank consent visible');
+    logStep('[lifecycle] 6 done: eFintech Connections page verified - active iBank consent visible');
   });
 });
 
@@ -998,7 +998,7 @@ async function openLedgerAccountViaUI(page: Page, productName: string, _denomina
   }
   await page.waitForTimeout(500);
   await waitForFlutterSemantics(page, 2_000);
-  // Wait for the detail page — it has an "Account Name (Nickname)" label.
+  // Wait for the detail page - it has an "Account Name (Nickname)" label.
   // FAIL FAST: if the detail page did not load after two clicks, fail with
   // page context instead of clicking "Open Account" on the wrong page.
   try {
@@ -1010,7 +1010,7 @@ async function openLedgerAccountViaUI(page: Page, productName: string, _denomina
   await page.waitForTimeout(500);
   await clickFlutterButton(page, 'Open Account', true);
   logStep(`[lifecycle] openLedgerAccountViaUI: clicked Open Account`);
-  // Verify the account was created — success message or return to catalog.
+  // Verify the account was created - success message or return to catalog.
   try {
     await waitForFlutterText(page, 'successfully', 3_000);
     logStep(`[lifecycle] openLedgerAccountViaUI: account created successfully`);
@@ -1018,9 +1018,9 @@ async function openLedgerAccountViaUI(page: Page, productName: string, _denomina
     const afterTexts = await getFlutterTexts(page);
     const stillOnForm = afterTexts.some((t) => t.includes('Nickname'));
     if (stillOnForm) {
-      throw new Error(`Open Account submit for ${productName} did not confirm — still on the detail form. Page: ${afterTexts.slice(0, 12).join(' | ')}`);
+      throw new Error(`Open Account submit for ${productName} did not confirm - still on the detail form. Page: ${afterTexts.slice(0, 12).join(' | ')}`);
     }
-    // Navigated away from the form — treat as created (some flows redirect).
+    // Navigated away from the form - treat as created (some flows redirect).
     logStep(`[lifecycle] openLedgerAccountViaUI: submitted (no success text; form dismissed)`);
   }
   try {

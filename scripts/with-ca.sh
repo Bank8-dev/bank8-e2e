@@ -44,7 +44,7 @@ if [[ -n "${CA_FILE:-}" ]]; then
     fi
   fi
 else
-  echo "[e2e-ts] WARNING: No CA cert found — TLS may fail" >&2
+  echo "[e2e-ts] WARNING: No CA cert found - TLS may fail" >&2
 fi
 
 exec "$@"

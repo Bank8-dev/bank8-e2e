@@ -3,7 +3,7 @@
 // SPDX-FileCopyrightText: Copyright Contributors to the Bank8:E2E
 // SPDX-License-Identifier: Apache-2.0
 
-// fixtures/index.ts — barrel export for the e2e fixtures.
+// fixtures/index.ts - barrel export for the e2e fixtures.
 //
 // Re-exports the helpers so test files can do:
 //

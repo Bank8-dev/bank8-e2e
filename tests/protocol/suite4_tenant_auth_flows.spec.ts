@@ -5,7 +5,7 @@
 
 // tests/suite4_tenant_auth_flows.spec.ts
 //
-// Suite 4 — Tenant Auth Flows (HTTP only — no browser).
+// Suite 4 - Tenant Auth Flows (HTTP only - no browser).
 //
 // Mirrors e2e/suites/suite04_tenant_auth_test.go.  Verifies that the
 // Sentin8:Auth server responds to OIDC discovery, JWKS, token, health, and
@@ -17,7 +17,7 @@ import { APIClient, Auth8URL, tenantAuthURL, tenantAppURL, TENANT_DOMAINS, logSt
 
 const httpClient = new APIClient({ baseURL: '', insecure: true });
 
-test.describe('Suite 4 — Tenant Auth Flows', () => {
+test.describe('Suite 4 - Tenant Auth Flows', () => {
   test('OIDC discovery on platform auth', async () => {
     logStep('[suite4] OIDC discovery on platform auth → GET /.well-known/openid-configuration');
     const r = await httpClient.get(`${Auth8URL}/.well-known/openid-configuration`);
