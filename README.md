@@ -82,7 +82,7 @@ make report
 ```
 
 Environment toggles: `PLAYWRIGHT_HEADLESS=true` (CI), `SENTIN8_DOMAIN`
-(overrides the default `sentin8.local`), `SENTIN8_CLI_BIN` (CLI path
+(overrides the default `local.sentin8.dev`), `SENTIN8_CLI_BIN` (CLI path
 override), `PLAYWRIGHT_MAX_FAILURES=0` (disable failfast).
 
 ## Layout

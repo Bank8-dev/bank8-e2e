@@ -387,7 +387,7 @@ export async function signInToTenantAuth8(
     await page.waitForTimeout(500);
   }
   // The browser is now on the app frontend URL (e.g.
-  // prod.ibank.ebank.app8.sentin8.local) with the BFF8 session cookie set.
+  // prod.ibank.ebank.app8.local.sentin8.dev) with the BFF8 session cookie set.
   // Wait for the Flutter app to boot. We do NOT navigate back to the
   // original appURL because it may be a custom domain (e.g. www.ibank.local)
   // that doesn't share the BFF8 session cookie's registrable domain.
@@ -416,6 +416,20 @@ import { logStep } from './log.js';
 // ── Low-level Flutter helpers ─────────────────────────────────────────
 
 /**
+ * Normalize typographic dashes (em '—' U+2014, en '–' U+2013, math
+ * minus '−' U+2212) to the ASCII hyphen '-' that test needles use.
+ * Flutter labels use em dashes while the specs type plain '-'; without
+ * this normalization the matchers below never find the element
+ * (observed 2026-10-20, lifecycle step 4: label
+ * 'Assisted Login — Send link to customer' never matched needle
+ * 'Assisted Login - Send link to customer').
+ */
+const DASH_RE = /[\u2014\u2013\u2212]/g;
+function normDash(s: string): string {
+  return s.replace(DASH_RE, '-');
+}
+
+/**
  * Find a flt-semantics element containing the given text and dispatch
  * a synthetic click.  This is the only way to trigger Flutter
  * CanvasKit button presses - Playwright's locator click is
@@ -429,13 +443,15 @@ export async function clickFlutterButton(page: Page, text: string, exact: boolea
   const deadline = Date.now() + 2_000;
   while (Date.now() < deadline) {
     const rect = await page.evaluate(({ needle, exact }: { needle: string; exact: boolean }) => {
-      const n = needle.toLowerCase();
+      // Normalize typographic dashes on both needle and label so an
+      // ASCII-needle ('Foo - Bar') matches an em-dash label ('Foo — Bar').
+      const dash = (s: string): string => s.replace(/[\u2014\u2013\u2212]/g, '-');
+      const n = dash(needle).toLowerCase();
       const els = document.querySelectorAll('flt-semantics');
       let buttonMatch: Element | null = null;
       let leafMatch: Element | null = null;
       for (const el of Array.from(els)) {
-        const raw = `${el.textContent ?? ''} ${el.getAttribute('aria-label') ?? ''}`;
-        const t = raw.trim().toLowerCase();
+        const t = dash(`${el.textContent ?? ''} ${el.getAttribute('aria-label') ?? ''}`).trim().toLowerCase();
         const matches = exact ? t === n : t.includes(n);
         if (!matches) continue;
         // Skip zero-size elements (stale/hidden)
@@ -482,13 +498,14 @@ export async function clickFlutterButtonNearText(
   const deadline = Date.now() + timeout;
   while (Date.now() < deadline) {
     const rect = await page.evaluate(({ btn, near }: { btn: string; near: string }) => {
-      const btnLower = btn.toLowerCase();
-      const nearLower = near.toLowerCase();
+      const dash = (s: string): string => s.replace(/[\u2014\u2013\u2212]/g, '-');
+      const btnLower = dash(btn).toLowerCase();
+      const nearLower = dash(near).toLowerCase();
       const els = document.querySelectorAll('flt-semantics');
       // First, find the container element that includes the near text.
       let container: Element | null = null;
       for (const el of Array.from(els)) {
-        const t = (el.textContent ?? '').toLowerCase();
+        const t = dash(el.textContent ?? '').toLowerCase();
         if (t.includes(nearLower)) {
           // Pick the smallest element that contains the text (leaf-ish).
           if (!container || (container.textContent ?? '').length > (el.textContent ?? '').length) {
@@ -501,8 +518,7 @@ export async function clickFlutterButtonNearText(
       // Search within the container's subtree for the button.
       const candidates = searchRoot.querySelectorAll('flt-semantics');
       for (const el of Array.from(candidates)) {
-        const raw = `${el.textContent ?? ''} ${el.getAttribute('aria-label') ?? ''}`;
-        const t = raw.trim().toLowerCase();
+        const t = dash(`${el.textContent ?? ''} ${el.getAttribute('aria-label') ?? ''}`).trim().toLowerCase();
         if (!t.includes(btnLower)) continue;
         const r = (el as HTMLElement).getBoundingClientRect();
         if (r.width === 0 && r.height === 0) continue;
@@ -534,15 +550,16 @@ export async function waitForFlutterSemantics(page: Page, timeout = 2_000): Prom
 
 /** Poll for a flt-semantics node or input element containing the given text. */
 export async function waitForFlutterText(page: Page, text: string, timeout = 2_000): Promise<void> {
-  const needle = text.toLowerCase();
+  const needle = normDash(text).toLowerCase();
   const deadline = Date.now() + timeout;
   while (Date.now() < deadline) {
     try {
       const found = await page.evaluate((n: string) => {
+        const dash = (s: string): string => s.replace(/[\u2014\u2013\u2212]/g, '-');
         const els = document.querySelectorAll('flt-semantics');
         // First pass: check non-zero-size elements (visible on screen)
         for (const el of Array.from(els)) {
-          const t = `${el.textContent ?? ''} ${el.getAttribute('aria-label') ?? ''}`.toLowerCase();
+          const t = dash(`${el.textContent ?? ''} ${el.getAttribute('aria-label') ?? ''}`).toLowerCase();
           if (!t.includes(n)) continue;
           const r = (el as HTMLElement).getBoundingClientRect();
           if (r.width > 0 && r.height > 0) return true;
@@ -552,14 +569,14 @@ export async function waitForFlutterText(page: Page, text: string, timeout = 2_0
         // may have zero size but the text IS visible on the canvas.
         // Skip elements that are not connected to the DOM (stale/removed).
         for (const el of Array.from(els)) {
-          const t = `${el.textContent ?? ''} ${el.getAttribute('aria-label') ?? ''}`.toLowerCase();
+          const t = dash(`${el.textContent ?? ''} ${el.getAttribute('aria-label') ?? ''}`).toLowerCase();
           if (!t.includes(n)) continue;
           if (el.isConnected) return true;
         }
         // Check input/textarea elements (CanvasKit text fields)
         const inputs = document.querySelectorAll('input, textarea');
         for (const el of Array.from(inputs)) {
-          const t = `${el.getAttribute('aria-label') ?? ''} ${el.getAttribute('placeholder') ?? ''}`.toLowerCase();
+          const t = dash(`${el.getAttribute('aria-label') ?? ''} ${el.getAttribute('placeholder') ?? ''}`).toLowerCase();
           if (t.includes(n)) return true;
         }
         return false;

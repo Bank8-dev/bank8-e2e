@@ -76,7 +76,7 @@ function planeEnv(): Record<string, string> {
     // pins the real value).
     SENTIN8_DOMAIN: platformDomain(),
     // The CLI's config.sentin8_auth_url still resolves from a config file,
-    // then `SENTIN8_SENTIN8_AUTH_URL`, then a hardcoded `sentin8.local`
+    // then `SENTIN8_SENTIN8_AUTH_URL`, then a hardcoded `local.sentin8.dev`
     // default that IGNORES SENTIN8_DOMAIN (cli config.rs
     // `sentin8_auth_url()`): pass the derived URL explicitly so signup /
     // sign-in land on the fleet's real auth host.
