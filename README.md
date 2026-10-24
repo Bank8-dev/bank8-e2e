@@ -1,7 +1,3 @@
-# SPDX-FileCopyrightText: Copyright Logically Magic Inc. <hello@logicallymagic.com>
-# SPDX-FileCopyrightText: Copyright Hamid Jahanzad <Hamid@Jahanzad.com>
-# SPDX-FileCopyrightText: Copyright Contributors to the Bank8:E2E
-# SPDX-License-Identifier: Apache-2.0
 
 # bank8-e2e - Playwright TypeScript end-to-end suite
 
@@ -9,6 +5,11 @@
 > it: a real browser, a real sign-up, a real org - with the same
 > restrictions a user has. Built on the official **@playwright/test**
 > runner.
+
+[![License: Apache 2.0](https://img.shields.io/badge/License-Apache_2.0-blue.svg)](../LICENSE)
+[![Built with TypeScript](https://img.shields.io/badge/Built%20with-TypeScript-blue.svg)](https://www.typescriptlang.org/)
+[![Docs](https://img.shields.io/badge/docs/read-3aa757.svg)](https://bank8.dev/docs/services/e2e)
+[![Website](https://img.shields.io/badge/website-bank8.dev-1a73e8.svg)](https://bank8.dev)
 
 The suite drives **only the four bank8 tenant apps** (bank8-admin,
 bank8-ebank, bank8-efintech, bank8-eteller) through the browser and the
