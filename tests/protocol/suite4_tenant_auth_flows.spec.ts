@@ -36,12 +36,6 @@ test.describe('Suite 4 - Tenant Auth Flows', () => {
     expect((r.json as { issuer?: string }).issuer).toBeTruthy();
   });
 
-  test('OIDC discovery on iFinTech tenant auth', async () => {
-    logStep('[suite4] OIDC discovery on iFinTech tenant auth → GET /.well-known/openid-configuration');
-    const r = await httpClient.get(`${tenantAuthURL(TENANT_DOMAINS.ifintech)}/.well-known/openid-configuration`);
-    expect(r.status).toBe(200);
-    expect((r.json as { issuer?: string }).issuer).toBeTruthy();
-  });
 
   test('JWKS on platform auth', async () => {
     logStep('[suite4] JWKS on platform auth → GET /.well-known/jwks.json');

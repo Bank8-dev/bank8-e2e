@@ -49,12 +49,6 @@ test.describe('Suite 6 - Tenant Resolution Enforcement', () => {
     expect(r.status).toBe(200);
   });
 
-  test('T4 iFinTech tenant auth host resolves to org realm', async () => {
-    logStep('[suite6] T4: iFinTech tenant auth host → expect org-realm OIDC doc');
-    const r = await httpClient.get(`${tenantAuthURL(TENANT_DOMAINS.ifintech)}/.well-known/openid-configuration`);
-    expect(r.status).toBe(200);
-  });
-
   test('T6 authorize endpoint redirects to sign-in without session', async () => {
     logStep('[suite6] T6: authorize endpoint (no session) → expect 302 or 400');
     const url = `${Auth8URL}/oauth/authorize?client_id=test&redirect_uri=${encodeURIComponent(tenantAppURL(TENANT_DOMAINS.ibank, 'prod', 'bank8-ebank') + '/auth/callback')}&response_type=code&code_challenge=test&code_challenge_method=S256&state=test`;
@@ -65,12 +59,6 @@ test.describe('Suite 6 - Tenant Resolution Enforcement', () => {
   test('T7 platform admin token cannot access tenant admin', async () => {
     logStep('[suite6] T7: platform admin → iBank tenant admin → expect 401');
     const r = await httpClient.get(`${tenantAuthURL(TENANT_DOMAINS.ibank)}/v1/admin/users`);
-    expect(r.status).toBe(401);
-  });
-
-  test('T7 iFinTech admin token cannot access iBank admin', async () => {
-    logStep('[suite6] T7: iFinTech admin → iBank tenant admin → expect 401');
-    const r = await httpClient.get(`${tenantAuthURL(TENANT_DOMAINS.ifintech)}/v1/admin/users`);
     expect(r.status).toBe(401);
   });
 

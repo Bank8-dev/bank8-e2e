@@ -254,7 +254,7 @@ export async function signUpViaApp(
     }
     if (url.includes('/sign-in')) {
       // Path (a): sign in with the new credentials, then keep polling -
-      // the sign-in may redirect to the consent page (eFintech's client is
+      // the sign-in may redirect to the consent page (a recipient client is
       // consent_required = true), which path (b) handles below.
       await waitForFlutterSemantics(page, 2_000);
       await signInOnAuth8(page, email, password);
@@ -401,7 +401,7 @@ export async function signInToTenantAuth8(
   while (Date.now() < authDeadline) {
     const texts = await getFlutterTexts(page);
     const all = texts.join(' ');
-    // If we see "Products" (sidebar item in eBank/efintech), we're authenticated.
+    // If we see "Products" (sidebar item in eBank), we're authenticated.
     if (all.toLowerCase().includes('products')) break;
     // If we still see "Sign In", the session check hasn't completed yet.
     // Wait and retry.

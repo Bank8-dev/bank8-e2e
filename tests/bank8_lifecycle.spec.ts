@@ -15,8 +15,9 @@
 //   3. Alice opens Checking/Savings/Credit Card accounts.
 //   4. Bob signs in to eTeller (staff) and finds Alice.
 //   5. Alice signs in to eBank and checks her accounts.
-//   6. Alice signs up at eFintech and completes the FDX consent flow,
-//      seeing her iBank accounts.
+//
+// The recipient journey (eFintech/consent flow) moved to the openfin8-e2e
+// suite - this suite covers bank8 services and apps only.
 //
 // Dash tests (operator onboarding, playground routes) live in the
 // sentin8 e2e suite - the bank8 suite never opens Dash.

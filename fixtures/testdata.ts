@@ -17,8 +17,9 @@
 export const DOMAIN = process.env.SENTIN8_DOMAIN ?? 'local.sentin8.dev';
 
 // ── Tenant org/ev URL helpers ─────────────────────────────────────────
-// The suite operates on two tenant orgs (iBank, iFinTech), each with a
-// prod env. Every URL a test touches is one of:
+// The suite operates on the iBank tenant org with its prod env (the
+// iFinTech recipient org moved to the openfin8-e2e suite). Every URL
+// a test touches is one of:
 //
 //   app runtime      https://{app-slug}.{env-slug}.{org-domain}
 //   BFF8 proxy       https://bff8.{app-slug}.{env-slug}.{org-domain}
@@ -39,7 +40,6 @@ export const DOMAIN = process.env.SENTIN8_DOMAIN ?? 'local.sentin8.dev';
  *  relay them upstream). */
 export const TENANT_DOMAINS = {
   ibank: `ibank.local.${DOMAIN}`,
-  ifintech: `ifintech.local.${DOMAIN}`,
 } as const;
 
 /** Tenant org domain: {org-slug}.{SENTIN8_DOMAIN}. */
@@ -132,7 +132,7 @@ export interface Persona {
   envSlug?: string;
 }
 
-export const Personas: Record<'dan' | 'bill' | 'frank' | 'alice' | 'bob' | 'carol' | 'ben', Persona> = {
+export const Personas: Record<'dan' | 'bill' | 'alice' | 'bob' | 'carol' | 'ben', Persona> = {
   dan: {
     firstName: 'Dan',
     lastName: 'Developer',
@@ -155,18 +155,9 @@ export const Personas: Record<'dan' | 'bill' | 'frank' | 'alice' | 'bob' | 'caro
     envName: 'Prod',
     envSlug: 'prod',
   },
-  frank: {
-    firstName: 'Frank',
-    lastName: 'Fintech',
-    email: emailWithRunID('frank'),
-    password: 'Test1234!',
-    domain: `${withRunID('ifintech')}.local.${DOMAIN}`,
-    role: 'Sentin8 org admin',
-    orgName: withRunID('iFinTech'),
-    orgSlug: withRunID('ifintech'),
-    envName: 'Prod',
-    envSlug: 'prod',
-  },
+  // frank (the iFinTech recipient-org persona) moved with the recipient
+  // journey to the openfin8-e2e suite - the bank8 lifecycle no longer
+  // provisions that tenant.
   alice: {
     firstName: 'Alice',
     lastName: 'Customer',
@@ -264,24 +255,6 @@ export const EBankListingPayload: ListingPayload = {
   scopes: EBANK_CUSTOMER_SCOPES
     .concat(EBANK_TELLER_DELTA_SCOPES, EBANK_ADMIN_DELTA_SCOPES)
     .join(' '),
-};
-
-const EFIN_TECH_RECIPIENT_SCOPES = [
-  'openfin8:ca:recipient:read',
-  'openfin8:ca:recipient:write',
-  'db:data:read',
-  'db:data:write',
-  'storage:env:read',
-  'storage:env:write',
-];
-
-export const EFinTechListingPayload: ListingPayload = {
-  appName: 'eFintech',
-  appSlug: 'efintech',
-  description:
-    'FDX Data Recipient app - connect your external bank accounts, view balances, transactions, and manage consent.',
-  // backendUrl: 'http://localhost:3006',
-  scopes: EFIN_TECH_RECIPIENT_SCOPES.join(' '),
 };
 
 /** eTeller scopes - teller staff with Ledg8 + Paym8 access for branch operations.

@@ -28,7 +28,6 @@ const STATE_CANDIDATES = [
 export interface E2EState {
   // Suite 1 - App Store / catalog
   ebankListingId?: string;
-  efintechListingId?: string;
 
   // Suite 2 - iBank end-to-end
   ibankOrgId?: string;
@@ -44,21 +43,11 @@ export interface E2EState {
   carolEmail?: string;
   ebankAccountIds?: string[];
 
-  // Suite 3 - iFintech end-to-end
-  ifintechOrgId?: string;
-  ifintechEnvId?: string;
-  ifintechOrgSlug?: string;
-  ifintechEnvSlug?: string;
-  efintechInstanceId?: string;
-  efintechHostname?: string;
-  efintechSetupIdempotencyKey?: string;
-  frankEmail?: string;
-  ifintechAliceEmail?: string;
-  aliceConsentId?: string;
+  // Suite 3 - admin end-to-end
+  adminOrgId?: string;
 
   // BFF8 proxy state (cross-suite)
   ebankBff8SessionCookie?: string;
-  efintechBff8SessionCookie?: string;
 }
 
 let resolvedPath: string | undefined;
@@ -131,13 +120,8 @@ export function ebankAppURLFromState(s: E2EState): string {
 export function ebankBff8URLFromState(s: E2EState): string {
   return tenantBff8URL(s.ibankOrgSlug ?? 'ibank', s.ibankEnvSlug ?? 'prod', 'www');
 }
-export function efintechAppURLFromState(s: E2EState): string {
-  if (s.efintechHostname) return `https://${s.efintechHostname}`;
-  return tenantAppURL(s.ifintechOrgSlug ?? 'ifintech', s.ifintechEnvSlug ?? 'prod', 'www');
-}
-export function efintechBff8URLFromState(s: E2EState): string {
-  return tenantBff8URL(s.ifintechOrgSlug ?? 'ifintech', s.ifintechEnvSlug ?? 'prod', 'www');
-}
+// The efintech app URL helpers moved with the recipient journey to the
+// openfin8-e2e suite (the iFinTech tenant is no longer provisioned here).
 
 // Re-export the join so callers can compute repo-relative paths.
 export { join };
