@@ -55,9 +55,6 @@ interface TestMeta {
   ebankHostname: string;
   adminAppHostname: string;
   etellerHostname: string;
-  efintechHostname: string;
-  ifintechOrgId: string;
-  ifintechEnvId: string;
   benEmail: string;
   bobEmail: string;
   aliceEmail: string;
@@ -139,7 +136,7 @@ async function maybePause(page: Page, stepTitle: string): Promise<void> {
   await page.pause();
 }
 
-test.describe('Bank8 Lifecycle - Admin + eBank + eTeller + eFintech', () => {
+test.describe('Bank8 Lifecycle - Admin + eBank + eTeller (bank8 apps + services only)', () => {
   let context: BrowserContext;
   let page: Page;
   let meta: TestMeta;
@@ -803,177 +800,6 @@ test.describe('Bank8 Lifecycle - Admin + eBank + eTeller + eFintech', () => {
   });
 
   // ═══════════════════════════════════════════════════════════════════════
-  // eFintech - Alice completes the FDX consent flow
-  // ═══════════════════════════════════════════════════════════════════════
-
-  test('6. Alice signs up as eFintech customer and completes FDX consent flow', async () => {
-    await maybePause(page, '6.');
-    logStep('[lifecycle] 6 start: Alice signs up at iFinTech and completes FDX consent');
-    const ifintechAppURL = `https://${meta.efintechHostname}`;
-
-    await signUpViaApp(
-      page, context, ifintechAppURL,
-      meta.aliceEmail, Personas.alice.firstName, Personas.alice.lastName, Personas.alice.password!,
-    );
-    logStep('[lifecycle] 6 step: Alice signed up at iFinTech');
-
-    await waitForFlutterText(page, 'Providers', 2_000);
-    await clickFlutterButton(page, 'Providers');
-    await waitForFlutterSemantics(page, 2_000);
-    logStep('[lifecycle] 6 step: navigated to Providers page');
-
-    // Verify iBank is listed as an available provider. The fdx Shield policy
-    // set for the newly-enabled env is picked up by the engine's hot-reload
-    // within ~90s of the service-enabled event (15.2.23); the catalog page
-    // fetches once on mount, so re-mount the page (Dashboard → Providers)
-    // on every miss until THIS run's provider card appears (~30s budget).
-    const thisRunProvider = `iBank${meta.runId}`;
-    let hasIBank = false;
-    for (let attempt = 0; attempt < 8 && !hasIBank; attempt++) {
-      try {
-        await waitForFlutterText(page, thisRunProvider, 3_000);
-        hasIBank = true;
-        break;
-      } catch {
-        // Re-mount the catalog: navigate to Dashboard, then back to Providers
-        // - each mount re-fetches the provider list through the BFF.
-        try { await clickFlutterButton(page, 'Dashboard', true); } catch { /* already there */ }
-        await page.waitForTimeout(400);
-        try { await clickFlutterButton(page, 'Providers', true); } catch { /* nav */ }
-        await waitForFlutterSemantics(page, 1_500);
-        if (attempt === 2 || attempt === 5) {
-          const debugTexts = await getFlutterTexts(page);
-          logStep(`[lifecycle] 6 step: provider still missing (attempt ${attempt + 1}/8). Page: ${debugTexts.slice(0, 12).join(' | ')}`);
-        }
-      }
-    }
-    expect(hasIBank, `this run's provider card (${thisRunProvider}) must appear on the eFintech Providers page`).toBe(true);
-    logStep('[lifecycle] 6 step: iBank listed as FDX provider, clicking it');
-    // Old-run provider profiles accumulate in fdx_provider_profiles (one per
-    // runId). Click THIS run's provider explicitly - the current run's org
-    // slug is unique, so the exact-name button targets the right card. The
-    // list loads asynchronously and this run's card may render after the
-    // generic "iBank" wait - poll for the exact card (6s) before failing.
-    let clickedThisRun = false;
-    const cardDeadline = Date.now() + 6_000;
-    while (Date.now() < cardDeadline && !clickedThisRun) {
-      try {
-        await clickFlutterButton(page, thisRunProvider);
-        clickedThisRun = true;
-      } catch {
-        await page.waitForTimeout(400);
-      }
-    }
-    if (!clickedThisRun) {
-      const debugTexts = await getFlutterTexts(page).catch(() => [] as string[]);
-      logStep(`[lifecycle] provider card missing. Page: ${debugTexts.slice(0, 20).join(' | ')}`);
-    }
-    expect(clickedThisRun, `this run's provider card (${thisRunProvider}) must be clickable`).toBe(true);
-    await page.waitForTimeout(500);
-
-    // The detail page opens via Navigator.push - give the Flutter route
-    // transition time to paint before asserting on the button text.
-    await waitForFlutterText(page, 'Connect & Authorize', 4_000);
-    await clickFlutterButton(page, 'Connect & Authorize');
-    logStep('[lifecycle] 6 step: clicked Connect & Authorize, waiting for redirect');
-
-    // Wait for redirect to iBank's Sentin8:Auth sign-in page.
-    // FAIL FAST: report the current URL when the deadline expires.
-    const consentDeadline = Date.now() + 5_000;
-    let consentStarted = false;
-    while (Date.now() < consentDeadline) {
-      const url = page.url();
-      if (url.includes('auth.') || url.includes('/oauth/authorize') || url.includes('/sign-in')) {
-        try {
-          await waitForFlutterSemantics(page, 2_000);
-          consentStarted = true;
-          break;
-        } catch { /* navigation in progress */ }
-      }
-      await page.waitForTimeout(500);
-    }
-    expect(consentStarted, `FDX consent flow should redirect to iBank Sentin8:Auth - still on ${page.url()}`).toBe(true);
-    logStep('[lifecycle] iBank consent flow started - redirected to provider Sentin8:Auth');
-
-    await signInOnAuth8(page, meta.aliceEmail, Personas.alice.password!);
-    logStep('[lifecycle] 6 step: Alice entered iBank Sentin8:Auth credentials');
-
-    await waitForFlutterText(page, 'Authorize', 2_000);
-    await page.waitForTimeout(500);
-    await clickFlutterButton(page, 'Authorize');
-    await page.waitForTimeout(500);
-    logStep('[lifecycle] 6 step: Alice clicked Authorize, waiting for callback chain');
-
-    // Wait for the OAuth callback chain to complete.
-    // FAIL FAST: report the current URL when the deadline expires.
-    const callbackDeadline = Date.now() + 10_000;
-    let consentCompleted = false;
-    while (Date.now() < callbackDeadline) {
-      const url = page.url();
-      if (
-        (url.includes(meta.efintechHostname) || url.includes('ifintech')) &&
-        !url.includes('auth.') &&
-        !url.includes('/fdx/consents/callback') &&
-        !url.includes('/oauth/') &&
-        !url.includes('/sign-in')
-      ) {
-        try {
-          await waitForFlutterSemantics(page, 2_000);
-          consentCompleted = true;
-          break;
-        } catch { /* Flutter still booting */ }
-      }
-      await page.waitForTimeout(500);
-    }
-    expect(consentCompleted, `FDX consent flow should complete and redirect back to eFintech - still on ${page.url()}`).toBe(true);
-    logStep('[lifecycle] 6 step: FDX consent completed - redirected back to eFintech app');
-
-    // Verify Alice can see her connected iBank accounts.
-    await waitForFlutterText(page, 'Accounts', 2_000);
-    await clickFlutterButton(page, 'Accounts');
-    await waitForFlutterSemantics(page, 2_000);
-    logStep('[lifecycle] 6 step: navigated to Accounts page');
-
-    let hasAccounts = false;
-    try {
-      await waitForFlutterText(page, 'Checking', 5_000);
-      hasAccounts = true;
-    } catch {
-      const texts = await getFlutterTexts(page);
-      const allText = texts.join(' ').toLowerCase();
-      if (allText.includes('no accounts yet') || allText.includes('no connected accounts')) {
-        throw new Error(`eFintech Accounts page shows EMPTY state - consent data did not flow. Page: ${texts.slice(0, 15).join(' | ')}`);
-      } else if (allText.includes('checking') || allText.includes('savings') || allText.includes('credit card')) {
-        hasAccounts = true;
-      } else {
-        throw new Error(`No iBank accounts on eFintech Accounts page. Page: ${texts.slice(0, 15).join(' | ')}`);
-      }
-    }
-    expect(hasAccounts, 'eFintech Accounts page should show iBank accounts after consent (not empty state)').toBe(true);
-    logStep('[lifecycle] 6 step: eFintech verified - Alice can see her iBank accounts after FDX consent');
-
-    // Verify the consent appears on the Connections page.
-    await waitForFlutterText(page, 'Connections', 2_000);
-    await clickFlutterButton(page, 'Connections');
-    await waitForFlutterSemantics(page, 2_000);
-    logStep('[lifecycle] 6 step: navigated to Connections page');
-    let hasConsent = false;
-    try {
-      await waitForFlutterText(page, 'ACTIVE', 2_000);
-      hasConsent = true;
-    } catch {
-      try {
-        await waitForFlutterText(page, 'Revoke', 2_000);
-        hasConsent = true;
-      } catch {
-        const texts = await getFlutterTexts(page);
-        throw new Error(`No active iBank consent on eFintech Connections page. Page: ${texts.slice(0, 15).join(' | ')}`);
-      }
-    }
-    expect(hasConsent, 'eFintech Connections page should show the active iBank consent').toBe(true);
-    logStep('[lifecycle] 6 done: eFintech Connections page verified - active iBank consent visible');
-  });
-});
 
 // ── Helpers ────────────────────────────────────────────────────────────
 
@@ -1031,3 +857,4 @@ async function openLedgerAccountViaUI(page: Page, productName: string, _denomina
   await waitForFlutterSemantics(page, 2_000);
   logStep(`[lifecycle] openLedgerAccountViaUI: done, URL: ${page.url()}`);
 }
+});

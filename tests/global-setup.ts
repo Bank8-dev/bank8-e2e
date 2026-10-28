@@ -10,14 +10,13 @@
 //
 //   1. CLI sign-in (Bill, platform operator) via headless device flow.
 //   2. iBank org + staff/prod envs via `sys org create` / `sys env create`.
-//   3. Vertical services (ledger, payments, fdx) enabled on prod env.
+//   3. Vertical services (ledger, payments, openfin8-ca) enabled on prod env.
 //   4. App instances (eBank, eTeller, Admin) installed from store listings.
 //   5. Staff users (Ben org-admin, Bob teller) + group membership.
-//   6. iFinTech org + prod env + eFintech instance (for the FDX flow).
 //
 // The resulting org/env/hostname data is written to .tmp/test-meta.json
 // and read by the lifecycle spec. UI tests then drive ONLY the four bank8
-// apps (admin, ebank, efintech, eteller).
+// apps (admin, ebank, eteller) - the recipient journey lives in openfin8-e2e.
 
 import { Personas, RUN_ID, DOMAIN } from '../fixtures/testdata.js';
 import { runCli, cliCall, cliDo, cliDoSettled, cliSignIn, cliRefreshToken, cliCallSettled, assertCliOk } from '../fixtures/cli.js';
@@ -33,7 +32,6 @@ export async function globalSetup(): Promise<void> {
   _done = true;
 
   const bill = Personas.bill;
-  const frank = Personas.frank;
   const ben = Personas.ben;
   const bob = Personas.bob;
 
@@ -120,35 +118,6 @@ export async function globalSetup(): Promise<void> {
       await cliCall('sys', 'PUT', `/v1/env/${ibankEnvId}/services`, { service: svc, enabled: true, config: {} }),
       `globalSetup: enable ${svc} on iBank prod env`,
     );
-  }
-
-  // Wait for the FDX provider profile to be registered (event-driven via
-  // the Bus): poll GET /v1/recipient/providers until this org's provider
-  // name appears. Test 6 (FDX consent) hard-fails without it, and the SSE
-  // consumer can lag the service-enabled event by seconds. Polling keeps
-  // the async registration out of the test's path; the poll is a bounded
-  // OBSERVATION only (VDC-9) - a stall fails loudly instead of re-firing
-  // the event.
-  const orgProviderName = `iBank${RUN_ID}`;
-  let providerRegistered = false;
-  for (let i = 0; i < 45 && !providerRegistered; i++) {
-    try {
-      // NOTE: the service name must be the DASH form (`bank8-fdx`) - the
-      // CLI's `call` resolver derives `{name}.ops.sys.{domain}` and only
-      // the dash form matches the enrolled subdomain (the bare leaf `fdx`
-      // 404s on Web's app-fallback; platform CLI defect, sentin8 backlog).
-      const resp = await cliCall('bank8-fdx', 'GET', '/v1/recipient/providers');
-      const body = JSON.stringify(resp.json ?? {});
-      if (body.includes(`iBank${RUN_ID}`)) providerRegistered = true;
-    } catch { /* fdx may still be booting - retry */ }
-    if (!providerRegistered) {
-      await new Promise((r) => setTimeout(r, 1_000));
-    }
-  }
-  if (providerRegistered) {
-    console.log(`  ✅ globalSetup: FDX provider profile registered (${orgProviderName})`);
-  } else {
-    console.log(`  ⚠️ globalSetup: FDX provider profile NOT observed - test 6 may fail`);
   }
 
   // ── 4. Install app instances from store listings ────────────────────
@@ -268,94 +237,6 @@ export async function globalSetup(): Promise<void> {
     await ensureGroupMember('sentin8:app:e_teller', (bobUser.json as { id: string }).id, 'Bob → sentin8:app:e_teller (legacy fallback)');
   }
 
-  // ── 6. iFinTech org + prod env + eFintech instance ──────────────────
-  await runCli([
-    'signup', '--email', frank.email!, '--password', frank.password!,
-    '--first-name', frank.firstName, '--last-name', frank.lastName,
-  ]).catch(() => undefined);
-
-  const fintechOrg = await cliDo('sys', 'org', 'create', {
-    display_name: frank.orgName!,
-    name: frank.orgSlug!,
-    slug: frank.orgSlug!,
-    domain: frank.domain!,
-  });
-  assertCliOk(fintechOrg, 'globalSetup: create iFinTech org');
-  const ifintechOrgId = (fintechOrg.json as { id: string }).id;
-  const ifintechOrgDomain =
-    (fintechOrg.json as { custom_domain?: string }).custom_domain ?? frank.domain!;
-
-  // Same provisioning barrier as the iBank org above - the eFintech
-  // install below targets this org's env and would 403 inside the
-  // pre-grant window.
-  const fintechOrgVerify = await cliCallSettled('sys', 'GET', `/v1/org/${ifintechOrgId}`);
-  assertCliOk(fintechOrgVerify, 'globalSetup: CLI verify iFinTech org (provisioning barrier)');
-
-  const fintechEnv = await cliDoSettled('sys', 'env', 'create', {
-    org_id: ifintechOrgId,
-    display_name: frank.envName!,
-    name: frank.envSlug!,
-    slug: frank.envSlug!,
-    env_type: 'production',
-  });
-  assertCliOk(fintechEnv, 'globalSetup: create iFinTech prod env');
-  const ifintechEnvId = (fintechEnv.json as { id: string }).id;
-
-  // AUTH-REACHABILITY BARRIER. App's setup_instance DCRs the new
-  // instance's sign-in client against the env-scoped customer Auth
-  // (https://auth.{env_slug}.{org_domain}); if the Auth identity for the
-  // freshly-created env is not yet routable, App logs "DCR failed
-  // (install continues)" and the install ends up with an EMPTY
-  // oauth_client_id → every subsequent sign-up 500s (BFF has no
-  // client_id, falls back to the platform `dash` client which is not
-  // active in this env → PAR 401 "invalid client").
-  // eBank never hit this because ~49 s elapse (FDX provider poll) before
-  // its install; eFintech is installed ~1 ms after the env is created so
-  // it raced the env-auth provisioning every run. Poll the env auth
-  // until it answers (any HTTP verdict counts - TLS/404/405 mean the
-  // route is live; only connect/TLS-refusal means "not yet"), then
-  // install. Bounded observation (max 45 s) like the FDX provider poll
-  // - a stall fails loudly instead of hiding behind the swallow.
-  const ifintechAuthUrl = `https://auth.${frank.envSlug}.${ifintechOrgDomain}`;
-  {
-    const prevTls = process.env.NODE_TLS_REJECT_UNAUTHORIZED;
-    process.env.NODE_TLS_REJECT_UNAUTHORIZED = '0';
-    let authReachable = false;
-    try {
-      for (let i = 0; i < 45 && !authReachable; i++) {
-        // Per-probe abort: a SYN-hung connect must not stall the poll.
-        const probe = new AbortController();
-        const timer = setTimeout(() => probe.abort(), 3_000);
-        try {
-          await fetch(ifintechAuthUrl, { method: 'GET', redirect: 'manual', signal: probe.signal });
-          authReachable = true;
-        } catch {
-          // Not routable yet (ENOTFOUND / ECONNREFUSED / TLS refused / abort) -
-          // wait and probe again.
-        } finally {
-          clearTimeout(timer);
-        }
-        if (!authReachable) {
-          await new Promise((r) => setTimeout(r, 1_000));
-        }
-      }
-    } finally {
-      if (prevTls === undefined) delete process.env.NODE_TLS_REJECT_UNAUTHORIZED;
-      else process.env.NODE_TLS_REJECT_UNAUTHORIZED = prevTls;
-    }
-    if (authReachable) {
-      console.log(`  ✅ globalSetup: iFinTech env auth reachable (${ifintechAuthUrl})`);
-    } else {
-      console.log(`  ⚠️ globalSetup: iFinTech env auth NOT observed - eFintech DCR may fail`);
-    }
-  }
-
-  assertCliOk(
-    await cliCallSettled('app', 'POST', '/v1/app/setup', { listing_id: listingId('bank8-efintech'), instance_name: 'eFintech' }, ifintechEnvId),
-    'globalSetup: install eFintech',
-  );
-  const efintechHostname = `bank8-efintech.${frank.envSlug}.${ifintechOrgDomain}`;
-
   // ── Write meta for test files ───────────────────────────────────────
   const meta = {
     runId: RUN_ID,
@@ -367,9 +248,6 @@ export async function globalSetup(): Promise<void> {
     ebankHostname,
     adminAppHostname,
     etellerHostname,
-    efintechHostname,
-    ifintechOrgId,
-    ifintechEnvId,
     benEmail: ben.email,
     bobEmail: bob.email,
     aliceEmail: Personas.alice.email,

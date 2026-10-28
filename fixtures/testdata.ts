@@ -247,9 +247,9 @@ const EBANK_TELLER_DELTA_SCOPES = [
  *  `EBANK_CUSTOMER_SCOPES ∪ EBANK_TELLER_DELTA_SCOPES ∪
  *   EBANK_ADMIN_DELTA_SCOPES`. */
 const EBANK_ADMIN_DELTA_SCOPES = [
-  'bank8:fdx:provider:read',
-  'bank8:fdx:provider:write',
-  'bank8:fdx:admin',
+  'openfin8:ca:provider:read',
+  'openfin8:ca:provider:write',
+  'openfin8:ca:admin',
   'bank8:ledger:accounts:write:any',
   'db:data:write',
   'storage:env:write',
@@ -267,8 +267,8 @@ export const EBankListingPayload: ListingPayload = {
 };
 
 const EFIN_TECH_RECIPIENT_SCOPES = [
-  'bank8:fdx:recipient:read',
-  'bank8:fdx:recipient:write',
+  'openfin8:ca:recipient:read',
+  'openfin8:ca:recipient:write',
   'db:data:read',
   'db:data:write',
   'storage:env:read',

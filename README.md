@@ -11,18 +11,23 @@
 [![Docs](https://img.shields.io/badge/docs/read-3aa757.svg)](https://bank8.dev/docs/services/e2e)
 [![Website](https://img.shields.io/badge/website-bank8.dev-1a73e8.svg)](https://bank8.dev)
 
-The suite drives **only the four bank8 tenant apps** (bank8-admin,
-bank8-ebank, bank8-efintech, bank8-eteller) through the browser and the
+The suite drives **only the bank8 tenant apps** (bank8-admin,
+bank8-ebank, bank8-eteller) through the browser and the
 BFF8 proxy - platform setup happens in `tests/global-setup.ts` via the
 **sentin8-cli** binary, and Dash flows live in the platform's own e2e
 repo (`sentin8-e2e`). Per `AGENTS.md`, e2e **never touches the database
 directly** - no psql, no backdoor API access from the UI suites.
 
+**Scope (OBVERT-3)**: the recipient journey (the former eFintech /
+eOpenCA consent flow) lives in the openfin8 vertical's own suite,
+[`OpenFin8/openfin8-e2e`](https://github.com/OpenFin8/openfin8-e2e) -
+this suite covers bank8's services and apps only.
+
 ## Suites
 
 | Suite | Path | Description |
 |-------|------|-------------|
-| Lifecycle | `tests/bank8_lifecycle.spec.ts` | Serial UI journey across all four apps: Ben creates ledger products in Admin, Alice signs up via eBank and opens accounts, Bob finds her in eTeller and deposits, Alice verifies her balance, Alice completes the FDX consent flow at eFintech. |
+| Lifecycle | `tests/bank8_lifecycle.spec.ts` | Serial UI journey across the bank8 apps: Ben creates ledger products in Admin, Alice signs up via eBank and opens accounts, Bob finds her in eTeller and deposits, Alice verifies her balance. The recipient journey (the consent flow at eOpenCA) lives in openfin8-e2e. |
 | Tenant auth flows | `tests/protocol/suite4_tenant_auth_flows.spec.ts` | HTTP-only: OIDC discovery, JWKS, token, health on tenant auth hosts. |
 | Tenant resolution | `tests/protocol/suite6_tenant_resolution_enforcement.spec.ts` | HTTP-only: cross-tenant isolation, host resolution, 401 on cross-tenant. |
 | Token exchange | `tests/protocol/suite8_token_exchange.spec.ts` | HTTP-only: RFC 8693 token-exchange protocol behavior. |
