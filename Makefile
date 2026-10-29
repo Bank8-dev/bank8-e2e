@@ -53,3 +53,4 @@ report: ## Open the Playwright HTML report
 
 clean: ## Remove node_modules + reports + run artifacts
 	@rm -rf node_modules test-results playwright-report .tmp .e2e-state.json
+	@rm -rf .run .run/logs .tmp
