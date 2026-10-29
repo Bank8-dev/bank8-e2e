@@ -37,9 +37,17 @@ test.describe('Suite 8 - RFC 8693 Token Exchange', () => {
     );
   });
 
+// RFC 8703 note: the token endpoint AUTHENTICATES THE CLIENT BEFORE grant
+// parsing (certified Sentin8:Auth contract) - an anonymous token call is
+// a 401 invalid_client, never a grant-level error. Every TE form below
+// carries the CLI's public client (token_endpoint_auth_method=none) so the
+// calls reach the grant validation the tests exercise.
+const PUBLIC_CLIENT = 'sentin8-cli';
+
   test('TE2 token-exchange without subject_token returns 400', async () => {
     logStep('[suite8] TE2: token-exchange w/o subject_token → expect 400');
     const r = await httpClient.postForm(`${Auth8URL}/oauth/token`, {
+      client_id: PUBLIC_CLIENT,
       grant_type: 'urn:ietf:params:oauth:grant-type:token-exchange',
       subject_token_type: 'urn:ietf:params:oauth:token-type:access_token',
       audience: LEDGER_AUDIENCE,
@@ -52,6 +60,7 @@ test.describe('Suite 8 - RFC 8693 Token Exchange', () => {
   test('TE3 token-exchange with invalid subject_token returns 400', async () => {
     logStep('[suite8] TE3: token-exchange w/ invalid subject_token → expect 400 (access_token exchange replaced by Delegation Gateway)');
     const r = await httpClient.postForm(`${Auth8URL}/oauth/token`, {
+      client_id: PUBLIC_CLIENT,
       grant_type: 'urn:ietf:params:oauth:grant-type:token-exchange',
       subject_token: 'invalid-jwt-token',
       subject_token_type: 'urn:ietf:params:oauth:token-type:access_token',
@@ -68,6 +77,7 @@ test.describe('Suite 8 - RFC 8693 Token Exchange', () => {
     // expect 401 (invalid token) or 400 (missing org_id). Either way,
     // it should not succeed.
     const r = await httpClient.postForm(`${Auth8URL}/oauth/token`, {
+      client_id: PUBLIC_CLIENT,
       grant_type: 'urn:ietf:params:oauth:grant-type:token-exchange',
       subject_token: 'dummy',
       subject_token_type: 'urn:ietf:params:oauth:token-type:access_token',
@@ -79,6 +89,7 @@ test.describe('Suite 8 - RFC 8693 Token Exchange', () => {
   test('TE5 token-exchange with wrong subject_token_type returns 400', async () => {
     logStep('[suite8] TE5: token-exchange w/ wrong subject_token_type → expect 400');
     const r = await httpClient.postForm(`${Auth8URL}/oauth/token`, {
+      client_id: PUBLIC_CLIENT,
       grant_type: 'urn:ietf:params:oauth:grant-type:token-exchange',
       subject_token: 'dummy',
       subject_token_type: 'urn:ietf:params:oauth:token-type:refresh_token',
@@ -98,10 +109,20 @@ test.describe('Suite 8 - RFC 8693 Token Exchange', () => {
   test('TE6 unsupported grant_type still returns 400', async () => {
     logStep('[suite8] TE6: invalid grant_type → expect 400 "unsupported grant_type"');
     const r = await httpClient.postForm(`${Auth8URL}/oauth/token`, {
+      client_id: PUBLIC_CLIENT,
       grant_type: 'invalid_grant_type',
     });
     expect(r.status).toBe(400);
-    expect(r.body).toContain('unsupported grant_type');
+    // Both certified answers depending on the active security profile:
+    // under `standard` the router's default branch answers
+    // `unsupported_grant_type`; under a FAPI posture the profile grant
+    // allow-list is MORE restrictive and fires first with
+    // `unauthorized_client ... not permitted under the active FAPI
+    // profile`. Either way the unknown grant is rejected with a 400.
+    const grantRejected =
+      r.body.includes('unsupported_grant_type') ||
+      r.body.includes('not permitted under the active FAPI profile');
+    expect(grantRejected, `TE6 expected a grant rejection, got: ${r.body}`).toBe(true);
   });
 
   test('TE7 token-exchange grant type is accepted (not rejected as unsupported)', async () => {
@@ -109,6 +130,7 @@ test.describe('Suite 8 - RFC 8693 Token Exchange', () => {
     // Even with invalid params, the grant type itself should be recognized
     // (the error should be about missing subject_token, not unsupported grant_type)
     const r = await httpClient.postForm(`${Auth8URL}/oauth/token`, {
+      client_id: PUBLIC_CLIENT,
       grant_type: 'urn:ietf:params:oauth:grant-type:token-exchange',
     });
     expect(r.status).toBe(400);

@@ -66,7 +66,12 @@ test.describe('Suite 4 - Tenant Auth Flows', () => {
     logStep('[suite4] health on platform auth → GET /v1/health');
     const r = await httpClient.get(`${Auth8URL}/v1/health`);
     expect(r.status).toBe(200);
-    expect((r.json as { service?: string }).service).toBeTruthy();
+    // The auth service's own health payload (its OWN handlers::health, not
+    // the shared shell form) carries status/version/build (+ gauge) - the
+    // canonical liveness contract; check THAT shape.
+    const doc = r.json as { status?: string; version?: string };
+    expect(doc.status).toBe('ok');
+    expect(doc.version).toBeTruthy();
   });
 
   test('health on iBank tenant auth', async () => {

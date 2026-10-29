@@ -34,12 +34,13 @@ export const DOMAIN = process.env.SENTIN8_DOMAIN ?? 'local.sentin8.dev';
  *  (suites 4/6) - global-setup creates the orgs with these
  *  custom_domain values.
  *  DNS: the resolver's wildcard covers *.local.sentin8.dev ONLY
- *  (SENTIN8_ACME_LOCAL_DOMAINS), so the tenant zones are derived as
- *  {tenant}.local.{DOMAIN} - subdomains of the platform wildcard zone,
- *  never bare `.local` names (those resolve nowhere and Acme would
- *  relay them upstream). */
+ *  (SENTIN8_ACME_LOCAL_DOMAINS = the platform DOMAIN itself), so the tenant
+ *  zones are derived as `{tenant}.${DOMAIN}` - {tenant} replaces the
+ *  org-slug label under the SAME wildcard zone (`ibank.local.sentin8.dev`
+ *  sits beside `ibank02368518.local.sentin8.dev`). Never bare `.local`
+ *  names (those resolve nowhere and Acme would relay them upstream). */
 export const TENANT_DOMAINS = {
-  ibank: `ibank.local.${DOMAIN}`,
+  ibank: `ibank.${DOMAIN}`,
 } as const;
 
 /** Tenant org domain: {org-slug}.{SENTIN8_DOMAIN}. */

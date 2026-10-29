@@ -18,8 +18,9 @@
 // and read by the lifecycle spec. UI tests then drive ONLY the four bank8
 // apps (admin, ebank, eteller) - the recipient journey lives in openfin8-e2e.
 
-import { Personas, RUN_ID, DOMAIN } from '../fixtures/testdata.js';
+import { Personas, RUN_ID, DOMAIN, TENANT_DOMAINS } from '../fixtures/testdata.js';
 import { runCli, cliCall, cliDo, cliDoSettled, cliSignIn, cliRefreshToken, cliCallSettled, assertCliOk } from '../fixtures/cli.js';
+import { logStep } from '../fixtures/log.js';
 import { writeFileSync, mkdirSync } from 'node:fs';
 import { join, dirname } from 'node:path';
 
@@ -98,6 +99,55 @@ export async function globalSetup(): Promise<void> {
     await cliCallSettled('sys', 'GET', `/v1/env/${ibankEnvId}`),
     'globalSetup: CLI verify iBank prod env',
   );
+
+  // ── 2b. STABLE protocol-fixture org (suites 4/6/8) ──────────────────
+  // The protocol suites probe the STABLE tenant hostnames derived from
+  // TENANT_DOMAINS.ibank (auth.staff.ibank.local.{DOMAIN} etc.), not the
+  // run-scoped org. The fixture org is idempotent: reuse when it exists
+  // (org create rejects a duplicate slug/domain), otherwise create it
+  // with its staff + prod envs. Run-scoped personas stay run-isolated;
+  // this org carries no users and no app instances.
+  let fixtureOrgId = '';
+  const fixtureOrgDomain = TENANT_DOMAINS.ibank;
+  const fixtureSlug = 'ibank';
+  {
+    // The stable org domain rides the fixture TENANT_DOMAINS value; the
+    // declared domain is the host-style form (sys appends SENTIN8_DOMAIN).
+    const existing = await runCli([
+      'call', 'sys', 'GET', '/v1/o?limit=200',
+    ]).catch(() => undefined);
+    if (existing && existing.exitCode === 0) {
+      const items = (existing.json as Array<{ id: string; slug?: string }> | undefined) ?? [];
+      fixtureOrgId = items.find((o) => o.slug === fixtureSlug)?.id ?? '';
+    }
+    if (!fixtureOrgId) {
+      const created = await cliDoSettled('sys', 'org', 'create', {
+        display_name: 'iBank',
+        name: fixtureSlug,
+        slug: fixtureSlug,
+        domain: 'ibank.local',
+      });
+      if (created.exitCode === 0) {
+        const payload = created.json as { json?: { id?: string }, id?: string } | undefined;
+        fixtureOrgId = payload?.json?.id ?? (payload as { id?: string })?.id ?? '';
+      } else {
+        // Pre-existing org from an earlier run (or a domain conflict) -
+        // surface it and move on. The protocol suites fail loudly when the
+        // fixture hostnames do not resolve.
+        console.log(`  [globalSetup] fixture org create failed: ${created.stderr.slice(0, 200)}`);
+      }
+    }
+    for (const env of [
+      { display_name: 'Staff', name: 'staff', slug: 'staff', env_type: 'staging' },
+      { display_name: 'Prod', name: 'prod', slug: 'prod', env_type: 'production' },
+    ]) {
+      if (!fixtureOrgId) break;
+      await cliDoSettled('sys', 'env', 'create', {
+        org_id: fixtureOrgId, ...env,
+      }).catch(() => undefined); // idempotent - duplicate env create is tolerated
+    }
+    logStep(`[globalSetup] protocol fixture org=${fixtureSlug} id=${fixtureOrgId || '(existing)'}`);
+  }
 
   // Refresh the CLI token - org + env creation assigned Bill new roles
   // (org:admin → nested sys:features:admin etc.), but the access token

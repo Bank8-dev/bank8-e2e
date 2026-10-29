@@ -53,9 +53,19 @@ export async function signOutViaUI(page: Page): Promise<void> {
   await waitForBridge(page, 'sentin8TestSignOut', 2_000);
   const ok = await callBridge(page, 'sentin8TestSignOut');
   if (!ok) throw new Error('sentin8TestSignOut bridge returned false');
-  await waitForURLContains(page, '/sign-in', 2_000);
+  // The bridge reloads the app (BFF sign-out + session clear + redirect to
+  // the app's own landing state). The reload + Flutter re-boot can take
+  // several seconds - a 2s wait raced the reload and mislabeled a healthy
+  // sign-out as a timeout.
+  await page.waitForTimeout(500);
   try {
-    await waitForFlutterText(page, 'Sign in', 2_000);
+    await waitForURLContains(page, '/sign-in', 10_000);
+  } catch {
+    // Some app shells land on the root dashboard URL after sign-out - the
+    // landing CONTENT check below is the authoritative signal.
+  }
+  try {
+    await waitForFlutterText(page, 'Sign in', 5_000);
   } catch {
     // page might still be loading
     await page.waitForTimeout(500);
@@ -367,8 +377,46 @@ export async function signInToTenantAuth8(
   // The app shows a landing page with "Sign In" and "Sign Up" buttons.
   // Click "Sign In" to redirect to the Auth8 sign-in page via BFF8 OAuth flow.
   await clickFlutterButton(page, 'Sign In');
-  // Wait for redirect to auth8 sign-in page.
-  await waitForURLContains(page, '/sign-in', 2_000);
+  // Wait for the BFF's OAuth authorize chain outcome. TWO legitimate outcomes:
+  // (a) the auth8 sign-in form (no live auth session - the usual path), or
+  // (b) a SILENT SSO bounce - the user still has a live auth session (e.g.
+  //     the CIBA assisted approval), so /oauth/authorize instantly 302s back
+  //     through /auth/callback and the app lands on its OWN dashboard URL
+  //     without ever showing the auth8 form. Race both outcomes.
+  const redirectDeadline = Date.now() + 20_000;
+  let signedInSilently = false;
+  while (Date.now() < redirectDeadline) {
+    const url = page.url();
+    if (url.includes('/sign-in') || url.includes('/oauth/') || url.includes('/auth/callback')) {
+      // Heading for auth8 - the interactive form path.
+      break;
+    }
+    // Silent-SSO path: we left eBank and came straight back. The URL no
+    // longer contains any auth-flow marker and the app shell is up.
+    //
+    // The OAuth bounce chain reloads the app mid-poll - an in-page evaluate
+    // races the navigation and dies with 'Execution context was destroyed'.
+    // Treat a destroyed context as poll-data (not an error): the NEXT
+    // iteration re-reads the settled URL/texts.
+    if (url.startsWith(appURL)) {
+      try {
+        const texts = await getFlutterTexts(page);
+        const all = texts.join(' ').toLowerCase();
+        if (all.includes('products') || all.includes('accounts') || all.includes('dashboard')) {
+          signedInSilently = true;
+          break;
+        }
+      } catch {
+        // Mid-navigation - the loop re-polls after the page settles.
+      }
+    }
+    await page.waitForTimeout(500);
+  }
+  if (signedInSilently) {
+    logStep(`[step] signInToTenantAuth8: silent SSO for ${email} (live auth session)`);
+    return;
+  }
+  await waitForURLContains(page, '/sign-in', 5_000);
   // Wait for the auth8 Flutter app to fully boot after the full page
   // navigation from the eBank app. The form fields need to be ready
   // before typing.
