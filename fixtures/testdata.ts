@@ -13,6 +13,9 @@
 // CLI's device-flow sign-in in global-setup posts against it) - it is
 // the single `URLs.platformAuth` entry, derived from SENTIN8_DOMAIN.
 
+import { existsSync } from 'node:fs';
+import { join, resolve } from 'node:path';
+
 /** Sentin8 platform root domain (defaults to `local.sentin8.dev`). */
 export const DOMAIN = process.env.SENTIN8_DOMAIN ?? 'local.sentin8.dev';
 
@@ -114,9 +117,35 @@ export function emailWithRunID(base: string): string {
 // Path anchors are absolute (cwd-independent, RS §4.5.1-1): the sibling
 // platform group's cli checkout first, then a system-installed CLI.
 export const TREE_ROOT = '/home/hamid/dev/sentin8.new';
-export const CLI_BIN =
-  process.env.SENTIN8_CLI_BIN ??
-  `${TREE_ROOT}/sentin8/sentin8-cli/target/release/sentin8-cli`;
+
+/**
+ * Path to the built sentin8-cli binary.
+ *
+ * Resolution order: an explicit `SENTIN8_CLI_BIN` → else derived from
+ * TREE_ROOT: `sentin8/sentin8-cli/target/{profile}/sentin8-cli`, where
+ * `profile` is `SENTIN8_CLI_PROFILE` (default `debug` - the documented dev
+ * pipeline builds debug) - with release tried as the fallback so a
+ * release-only tree works too. The old hard-coded release default ENOENTed
+ * the very first CLI spawn on a debug-built tree, which global-setup
+ * surfaced as 'sign-in failed: HTTP 401' (the sign-up spawn died before
+ * any HTTP happened). Fail loud on the primary candidate so the spawn
+ * error names the expected path.
+ */
+function resolveCliBin(): string {
+  if (process.env.SENTIN8_CLI_BIN) return process.env.SENTIN8_CLI_BIN;
+  const profile = process.env.SENTIN8_CLI_PROFILE ?? 'debug';
+  const candidates = [
+    `${TREE_ROOT}/sentin8/sentin8-cli/target/${profile}/sentin8-cli`,
+    `${TREE_ROOT}/sentin8/sentin8-cli/target/release/sentin8-cli`,
+    `${TREE_ROOT}/sentin8/sentin8-cli/target/debug/sentin8-cli`,
+  ];
+  for (const candidate of candidates) {
+    if (existsSync(candidate)) return candidate;
+  }
+  return candidates[0];
+}
+
+export const CLI_BIN = resolveCliBin();
 
 // ── Personas ───────────────────────────────────────────────────────────
 
