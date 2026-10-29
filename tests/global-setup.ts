@@ -105,7 +105,7 @@ export async function globalSetup(): Promise<void> {
   await cliRefreshToken();
 
   // ── 3. Enable vertical services on the prod env ────────────────────
-  // VDC-9 (design/sentin8-vertical-data-plane-contract.md §VDC.8): ONE
+  // (design/sentin8-vertical-data-plane-contract.md §VDC.8): ONE
   // enable event per service - the env-init path is verified working, so
   // the former brute-force re-PUT loops (30× re-firing the enable event to
   // mask a silently-broken consumer) are removed. A seed that genuinely

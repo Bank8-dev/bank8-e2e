@@ -78,7 +78,7 @@ export function tenantBff8URL(orgDomainOrSlug: string, envSlug: string, appSlug:
 /** Vertical service URL (system environment):
  *  https://{dash-form subdomain}.ops.sys.{SENTIN8_DOMAIN}.
  *  Used only by global-setup's CLI `call` passthroughs (the CLI's
- *  resolver accepts the dash form only; platform CLI backlog). */
+ *  resolver accepts the dash form only). */
 export function verticalServiceURL(service: string, domain: string = DOMAIN): string {
   return `https://${service}.ops.sys.${domain}`;
 }

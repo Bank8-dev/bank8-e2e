@@ -47,7 +47,7 @@ export interface CliResult {
 export const CLI_HOME = join(process.cwd(), '.tmp', 'cli-home');
 
 /**
- * Plane env for the standalone CLI (BANK8CLI-ENV-1): the HOME override
+ * Plane env for the standalone CLI (BANK8CLI-): the HOME override
  * above ALSO breaks the CLI's last-resort CA fallback
  * (`$HOME/.sentin8/acme/ca/root-ca.crt` - the sandbox dir has no Acme
  * state), and in a clean operator shell no `SENTIN8_*` plane var is

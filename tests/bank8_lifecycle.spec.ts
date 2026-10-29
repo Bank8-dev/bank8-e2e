@@ -106,6 +106,38 @@ async function warmTenantServiceRoutes(meta: TestMeta, orgDomain: string): Promi
   }
 }
 
+/**
+ * Warm the on-demand TLS leaf for APP frontends + their BFF + auth hosts
+ * BEFORE the test browser opens them. Mirrors warmTenantServiceRoutes
+ * semantics: any HTTP verdict proves the mint completed; poll (retried
+ * fetches) until each hostname responds or the window closes.
+ */
+async function warmHostnames(urls: string[]): Promise<void> {
+  const prev = process.env.NODE_TLS_REJECT_UNAUTHORIZED;
+  process.env.NODE_TLS_REJECT_UNAUTHORIZED = '0';
+  try {
+    const deadline = Date.now() + 45_000;
+    const pending = new Set(urls);
+    while (Date.now() < deadline && pending.size > 0) {
+      for (const url of Array.from(pending)) {
+        try {
+          await fetch(url, { signal: AbortSignal.timeout(8_000) });
+          // Any HTTP verdict (even 401/404) means TLS is live.
+          pending.delete(url);
+        } catch {
+          // Not minted yet - retried on the next pass.
+        }
+      }
+      if (pending.size > 0) await new Promise((r) => setTimeout(r, 750));
+    }
+    if (pending.size === 0) logStep('[lifecycle] app/bff/auth hostnames TLS-warmed');
+    else logStep(`[lifecycle] ⚠️ hostname warmup window elapsed - ${Array.from(pending).join(', ')}`);
+  } finally {
+    if (prev === undefined) delete process.env.NODE_TLS_REJECT_UNAUTHORIZED;
+    else process.env.NODE_TLS_REJECT_UNAUTHORIZED = prev;
+  }
+}
+
 function loadMeta(): TestMeta {
   const raw = readFileSync(join(process.cwd(), '.tmp', 'test-meta.json'), 'utf-8');
   return JSON.parse(raw) as TestMeta;
@@ -158,6 +190,24 @@ test.describe('Bank8 Lifecycle - Admin + eBank + eTeller (bank8 apps + services 
     // forward client races the upstream's on-demand Acme leaf on the
     // first hit of a fresh run (see warmTenantServiceRoutes).
     await warmTenantServiceRoutes(meta, meta.ibankOrgDomain);
+    // Warm the APP + BFF + staff-auth hostnames too: a fresh runID's first
+    // BFF cert fetch can die mid-flight silently (observed: detached ACME
+    // task aborted, self-healed on a later handshake ~46s after the
+    // first). If the browser opens the app before the BFF leaf lands, the
+    // app's own /auth/session fetch times out and the login screen never
+    // renders - a boot race no in-page poll can fix. Node fetch here gives
+    // the mints a head start outside the browser. ALL three apps warm:
+    // the lifecycle drives eBank and eTeller too (not just Admin).
+    await warmHostnames([
+      `https://${meta.adminAppHostname}`,
+      `https://bff.${meta.adminAppHostname}`,
+      `https://${meta.ebankHostname}`,
+      `https://bff.${meta.ebankHostname}`,
+      `https://${meta.etellerHostname}`,
+      `https://bff.${meta.etellerHostname}`,
+      `https://auth.${meta.ibankOrgDomain}`,
+      `https://auth.staff.${meta.ibankOrgDomain}`,
+    ]);
   });
 
   test.afterAll(async () => {
@@ -181,13 +231,33 @@ test.describe('Bank8 Lifecycle - Admin + eBank + eTeller (bank8 apps + services 
     logStep(`[lifecycle] 1 step: navigating to Bank8:Admin at ${adminURL}`);
 
     await gotoCertWarm(page, adminURL);
-    await waitForFlutterSemantics(page, 2_000);
+    // Cold-boot budget: a new run's first load races the on-demand TLS cert
+    // mint for the app + BFF + staff-auth hostnames and the first
+    // /auth/session call (observed 3.7s on the BFF alone; the engine boot
+    // + semantics render arrives ~10-15s after goto on a truly cold run).
+    // waitForFlutterSemantics returns as soon as ANY flt-semantics exists,
+    // but the login screen may not be rendered yet - so poll for the
+    // actual STATE text ("Staff Sign In" OR the signed-in dashboard's
+    // "Overview") before branching. Up to 30s.
+    const bootDeadline = Date.now() + 30_000;
+    let booted = false;
+    while (Date.now() < bootDeadline) {
+      const texts = await getFlutterTexts(page);
+      if (texts.some((t) => t.includes('Staff Sign In') || t.includes('Overview') || t.includes('Ledger'))) {
+        booted = true;
+        break;
+      }
+      await page.waitForTimeout(500);
+    }
+    if (!booted) {
+      throw new Error(`Bank8:Admin did not finish booting within 30s (no "Staff Sign In" or dashboard text)`);
+    }
     await page.waitForTimeout(500);
 
     // If not already signed in (SSO via shared cookie), sign in via staff auth.
     // FAIL FAST: each step must succeed - no silent catch-and-continue.
-    const texts = await getFlutterTexts(page);
-    const alreadySignedIn = texts.some((t) => t.includes('Overview') || t.includes('Ledger'));
+    const t2 = await getFlutterTexts(page);
+    const alreadySignedIn = t2.some((t) => t.includes('Overview') || t.includes('Ledger'));
     if (!alreadySignedIn) {
       logStep('[lifecycle] 1 step: not signed in - signing in via staff auth');
       await clickFlutterButton(page, 'Staff Sign In');
