@@ -19,7 +19,7 @@
 import { test, expect } from '@playwright/test';
 import { APIClient, Auth8URL, verticalServiceURL, logStep } from './fixtures/index.js';
 
-const httpClient = new APIClient({ baseURL: '', insecure: true });
+const httpClient = new APIClient({ baseURL: '' });
 
 // RFC 8707 resource-indicator audience for bank8:ledger - the registry
 // subdomain form ({subdomain}.ops.sys.{SENTIN8_DOMAIN}), derived from

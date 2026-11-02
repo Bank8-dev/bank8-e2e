@@ -15,7 +15,7 @@
 import { test, expect } from '@playwright/test';
 import { APIClient, Auth8URL, tenantAuthURL, tenantAppURL, TENANT_DOMAINS, logStep } from './fixtures/index.js';
 
-const httpClient = new APIClient({ baseURL: '', insecure: true });
+const httpClient = new APIClient({ baseURL: '' });
 
 test.describe('Suite 4 - Tenant Auth Flows', () => {
   test('OIDC discovery on platform auth', async () => {

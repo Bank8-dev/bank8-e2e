@@ -17,7 +17,7 @@
 import { test, expect } from '@playwright/test';
 import { APIClient, Auth8URL, tenantAuthURL, tenantAppURL, TENANT_DOMAINS, logStep } from './fixtures/index.js';
 
-const httpClient = new APIClient({ baseURL: '', insecure: true });
+const httpClient = new APIClient({ baseURL: '' });
 
 test.describe('Suite 6 - Tenant Resolution Enforcement', () => {
   test('T1 POST /oauth/token without body returns 400', async () => {

@@ -309,26 +309,21 @@ export async function cliRefreshToken(): Promise<void> {
   if (!creds.refresh_token) {
     throw new Error('cliRefreshToken: no refresh token in credentials');
   }
-  // Disable TLS verification for the local self-signed CA (same approach
-  // as the platform suite's cli.ts - the Acme root is trusted by the CLI
-  // via SENTIN8_TLS_CA_PEM, but Node's fetch needs this bypass locally).
-  const prevTls = process.env.NODE_TLS_REJECT_UNAUTHORIZED;
-  process.env.NODE_TLS_REJECT_UNAUTHORIZED = '0';
+  // TLS trust: Node runs with --use-openssl-ca (npm scripts) and the
+  // platform root CA lives in the OS trust store (acme installs it at
+  // boot; update-ca-certificates refreshes the bundle). The historic
+  // NODE_TLS_REJECT_UNAUTHORIZED=0 bypass is forbidden by the platform
+  // TLS rule - verification never happens in code.
   let resp: Response;
-  try {
-    resp = await fetch(`${creds.sentin8_auth_url}/oauth/token`, {
-      method: 'POST',
-      headers: { 'content-type': 'application/x-www-form-urlencoded' },
-      body: new URLSearchParams({
-        grant_type: 'refresh_token',
-        refresh_token: creds.refresh_token,
-        client_id: 'sentin8-cli',
-      }),
-    });
-  } finally {
-    if (prevTls === undefined) delete process.env.NODE_TLS_REJECT_UNAUTHORIZED;
-    else process.env.NODE_TLS_REJECT_UNAUTHORIZED = prevTls;
-  }
+  resp = await fetch(`${creds.sentin8_auth_url}/oauth/token`, {
+    method: 'POST',
+    headers: { 'content-type': 'application/x-www-form-urlencoded' },
+    body: new URLSearchParams({
+      grant_type: 'refresh_token',
+      refresh_token: creds.refresh_token,
+      client_id: 'sentin8-cli',
+    }),
+  });
   if (!resp.ok) {
     throw new Error(`cliRefreshToken: refresh failed: HTTP ${resp.status} ${await resp.text()}`);
   }
@@ -368,13 +363,10 @@ export async function cliSignIn(email: string, password: string): Promise<void> 
     '--first-name', 'Test', '--last-name', 'Operator',
   ]).catch(() => undefined);
 
-  // Disable TLS verification for the local self-signed CA (Node fetch).
-  const prev = process.env.NODE_TLS_REJECT_UNAUTHORIZED;
-  process.env.NODE_TLS_REJECT_UNAUTHORIZED = '0';
-
-  try {
-    // 1. Request a device code - endpoint is POST /oauth/device (see
-    //    sentin8/cmd/cli/src/auth.rs:95).
+  // TLS trust: the platform root CA is in the OS trust store and Node
+  // runs with --use-openssl-ca (npm scripts) - no verification bypass.
+  // 1. Request a device code - endpoint is POST /oauth/device (see
+  //    sentin8/cmd/cli/src/auth.rs:95).
     const startResp = await fetch(`${Auth8URL}/oauth/device`, {
       method: 'POST',
       headers: { 'content-type': 'application/x-www-form-urlencoded' },
@@ -460,13 +452,7 @@ export async function cliSignIn(email: string, password: string): Promise<void> 
       }
     }
     throw new Error('cliSignIn: device flow timed out waiting for approval');
-  } finally {
-    if (prev === undefined) {
-      delete process.env.NODE_TLS_REJECT_UNAUTHORIZED;
-    } else {
-      process.env.NODE_TLS_REJECT_UNAUTHORIZED = prev;
-    }
-  }
+  // no TLS-bypass restore: verification is never disabled (OS trust store)
 }
 
 const DOMAIN_SAFE = platformDomain();

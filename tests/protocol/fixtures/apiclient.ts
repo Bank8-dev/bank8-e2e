@@ -36,29 +36,22 @@ if (!process.env.SENTIN8_CA_CERT && !process.env.NODE_EXTRA_CA_CERTS) {
 }
 
 /**
- * Build a TLS-disabling fetch for tests that need to bypass the local
- * CA check (e.g. when the suite wants to verify that an endpoint
- * returns 401 even with an untrusted CA).
+ * TLS trust: the platform root CA is installed at the OS level (acme
+ * installs /usr/local/share/ca-certificates/sentin8-local-ca.crt at
+ * boot; update-ca-certificates refreshes the bundle) and the suite's
+ * npm scripts run Node with --use-openssl-ca so fetch/undici verify
+ * against the OS store. NO code-level TLS bypass - a rejected cert is
+ * a provisioning defect to fix at the OS level, never to skip in code.
  */
 function makeFetch(allowInsecure: boolean): typeof fetch {
   if (allowInsecure) {
-    // Construct an Agent-like dispatcher via undici's global Agent.
-    // Node ≥18 has globalThis.fetch backed by undici; we can disable
-    // verification by setting NODE_TLS_REJECT_UNAUTHORIZED=0 for the
-    // process - but that affects every test.  Instead we route through
-    // a small undici.Agent.  To avoid the undici dep, we set the env
-    // var only for the duration of an insecure call using a child
-    // process would be heavy.  So instead we use the per-request
-    // approach: undici's global agent honours NODE_TLS_REJECT_UNAUTHORIZED
-    // - we'll just flip it briefly inside the call.
-    const prev = process.env.NODE_TLS_REJECT_UNAUTHORIZED;
-    process.env.NODE_TLS_REJECT_UNAUTHORIZED = '0';
-    const f = (...args: Parameters<typeof fetch>) => fetch(...args);
-    f.finally = () => {
-      if (prev === undefined) delete process.env.NODE_TLS_REJECT_UNAUTHORIZED;
-      else process.env.NODE_TLS_REJECT_UNAUTHORIZED = prev;
-    };
-    return f;
+    // Historically this flipped NODE_TLS_REJECT_UNAUTHORIZED=0. The
+    // platform TLS rule forbids verification bypasses entirely.
+    // Fail loudly instead so no call site can quietly skip verification.
+    throw new Error(
+      'makeFetch(allowInsecure=true) is forbidden by the platform TLS rule: ' +
+      'certificate rejections are fixed at the OS trust store, never bypassed',
+    );
   }
   return fetch;
 }
@@ -71,8 +64,6 @@ export interface APIClientOptions {
   rawCookie?: string;
   /** Optional CSRF token (X-BFF8-CSRF). */
   csrfToken?: string;
-  /** Force insecure (skip CA verification).  Default false. */
-  insecure?: boolean;
 }
 
 export class APIClient {
@@ -80,14 +71,15 @@ export class APIClient {
   rawCookie?: string;
   csrfToken?: string;
   private doFetch: typeof fetch;
-  private insecure: boolean;
 
   constructor(opts: APIClientOptions) {
     this.baseURL = opts.baseURL.replace(/\/$/, '');
     this.rawCookie = opts.rawCookie;
     this.csrfToken = opts.csrfToken;
-    this.insecure = !!opts.insecure;
-    this.doFetch = makeFetch(this.insecure);
+    // Verified fetch only - the platform root CA lives in the OS trust
+    // store and Node runs with --use-openssl-ca (platform TLS rule: no
+    // code-level verification bypass, ever).
+    this.doFetch = makeFetch(false);
   }
 
   /** Extract the __Host-bff8-session cookie value from a Playwright BrowserContext's cookies. */

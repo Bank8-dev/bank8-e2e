@@ -8,12 +8,12 @@
     "node": ">=20"
   },
   "scripts": {
-    "test": "playwright test --max-failures=1 tests/bank8_lifecycle.spec.ts",
-    "test:protocol": "playwright test tests/protocol/",
-    "test:lifecycle": "playwright test tests/bank8_lifecycle.spec.ts",
-    "test:suite4": "playwright test tests/protocol/suite4_tenant_auth_flows.spec.ts",
-    "test:suite6": "playwright test tests/protocol/suite6_tenant_resolution_enforcement.spec.ts",
-    "test:suite8": "playwright test tests/protocol/suite8_token_exchange.spec.ts",
+    "test": "node --use-openssl-ca node_modules/@playwright/test/cli.js test --max-failures=1 tests/bank8_lifecycle.spec.ts",
+    "test:protocol": "node --use-openssl-ca node_modules/@playwright/test/cli.js test tests/protocol/",
+    "test:lifecycle": "node --use-openssl-ca node_modules/@playwright/test/cli.js test tests/bank8_lifecycle.spec.ts",
+    "test:suite4": "node --use-openssl-ca node_modules/@playwright/test/cli.js test tests/protocol/suite4_tenant_auth_flows.spec.ts",
+    "test:suite6": "node --use-openssl-ca node_modules/@playwright/test/cli.js test tests/protocol/suite6_tenant_resolution_enforcement.spec.ts",
+    "test:suite8": "node --use-openssl-ca node_modules/@playwright/test/cli.js test tests/protocol/suite8_token_exchange.spec.ts",
     "install-browsers": "playwright install chromium",
     "lint": "tsc --noEmit"
   },
