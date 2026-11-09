@@ -81,8 +81,26 @@ function planeEnv(): Record<string, string> {
     // `sentin8_auth_url()`): pass the derived URL explicitly so signup /
     // sign-in land on the fleet's real auth host.
     SENTIN8_SENTIN8_AUTH_URL: `https://auth.ops.sys.${platformDomain()}`,
+    // Fleet TLS posture (platform suite DESIGN §4 invariant 7): the CLI is
+    // a rustls client whose key-exchange offer must match the fleet's
+    // SENTIN8_TLS_PQ_MODE - without this copy a classical-postured fleet
+    // rejects the CLI's default exclusive (X25519MLKEM768-only) offer with
+    // a silent HandshakeFailure and every CLI HTTPS call fails as a
+    // connection error (bank8-e2e README "Fleet TLS posture
+    // inheritance"). The values come from process.env (fixtures/env.ts
+    // loads them from the same tree-root .env the fleet booted from;
+    // operator exports win).
+    SENTIN8_TLS_PQ_MODE: process.env.SENTIN8_TLS_PQ_MODE ?? '',
+    SENTIN8_TLS_CIPHER_PROFILE: process.env.SENTIN8_TLS_CIPHER_PROFILE ?? '',
+    SENTIN8_TLS_CLIENT_AUTH: process.env.SENTIN8_TLS_CLIENT_AUTH ?? '',
+    SENTIN8_MTLS_CLIENT_AUTH: process.env.SENTIN8_MTLS_CLIENT_AUTH ?? '',
   };
   for (const [key, value] of Object.entries(derived)) {
+    // Empty-string fallback: an unset posture var must NOT leak into the
+    // child as `SENTIN8_TLS_PQ_MODE=` (an empty value overrides a value
+    // the CLI would otherwise resolve itself) - only copy vars that have
+    // a real value from the loader/operator environment.
+    if (!value) continue;
     env[key] = process.env[key] ?? value;
   }
   return env;

@@ -91,6 +91,23 @@ Environment toggles: `PLAYWRIGHT_HEADLESS=true` (CI), `SENTIN8_DOMAIN`
 (overrides the default `local.sentin8.dev`), `SENTIN8_CLI_BIN` (CLI path
 override), `PLAYWRIGHT_MAX_FAILURES=0` (disable failfast).
 
+## Fleet TLS posture inheritance
+
+The suite tests the fleet the operator booted, so the spawned
+`sentin8-cli` must present the fleet's OWN TLS posture - the CLI is a
+rustls client whose key-exchange offer is keyed off
+`SENTIN8_TLS_PQ_MODE` (defaulting to `exclusive`, X25519MLKEM768-only,
+when unset). A fleet booted `classical` (the tree-root `.env` posture)
+rejects that offer with a silent TLS `HandshakeFailure`: the CLI's
+`signup`/`call` fail as connection errors with no HTTP trace, the
+idempotent signup leaves the persona nonexistent, and the device-flow
+approval sign-in 401s. `fixtures/env.ts` therefore loads the fleet TLS
+posture vars (`SENTIN8_TLS_PQ_MODE`, `SENTIN8_TLS_CIPHER_PROFILE`,
+`SENTIN8_TLS_CLIENT_AUTH`, `SENTIN8_MTLS_CLIENT_AUTH`) from the same
+tree-root `.env` the fleet is booted from, and `fixtures/cli.ts`
+`planeEnv()` copies them into every CLI child - real-environment values
+always win. This mirrors the platform suite's DESIGN §4 invariant 7.
+
 ## Layout
 
 ```
