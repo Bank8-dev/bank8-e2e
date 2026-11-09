@@ -180,14 +180,21 @@ export async function signInOnAuth8(page: Page, email: string, password: string)
     logStep(`[step] signInOnAuth8: page already redirected away (session live) - skipping sign-in`);
     return;
   }
+  // Identifier-first two-step fill (auth-ui IDFIRST-1): step 1 collects
+  // the email (Continue), then the credential step renders - password
+  // field + "Sign in" (exact match so "Sign in with passkey" is never
+  // clicked). Mirrors the platform suite's signInOnAuth8.
   await page.waitForTimeout(500);
   await typeFlutterField(page, 'Email', email);
   await page.waitForTimeout(300);
+  await clickFlutterButton(page, 'Continue', true);
+  await waitForFlutterText(page, 'Password', 4_000);
+  await page.waitForTimeout(300);
   await typeFlutterField(page, 'Password', password);
   await page.waitForTimeout(300);
-  // Submit the form by clicking the "Continue" button. Use exact matching
-  // to avoid clicking "Continue with SSO".
-  await clickFlutterButton(page, 'Continue', true);
+  // Submit the credential step (button label is "Sign in" on step 2 -
+  // exact match so "Sign in with passkey" is never clicked).
+  await clickFlutterButton(page, 'Sign in', true);
   // Wait for the sign-in API response (Set-Cookie + OAuth callback redirect).
   await page.waitForTimeout(500);
 }
@@ -658,7 +665,9 @@ export async function waitForURLContains(page: Page, substr: string, timeout = 2
  * label. Retries for up to 1 seconds.
  */
 export async function clickFlutterCheckbox(page: Page, nearbyText: string): Promise<void> {
-  const deadline = Date.now() + 1_000;
+  // 5s: the scroll + multi-strategy toggle loop needs more than one pass
+  // under load (a 1s window expired before the first scroll retry).
+  const deadline = Date.now() + 5_000;
 
   // Map feature names to their switch index in the settings page.
   // The order matches the _envNavItems / _featureInfo order in Dash.
@@ -731,11 +740,15 @@ export async function clickFlutterCheckbox(page: Page, nearbyText: string): Prom
     }
 
     // For non-feature checkboxes (Terms of Service, etc.), use text matching.
-    // First, scroll the target into view.
+    // First, scroll the target into view. Buttons/links are excluded as
+    // candidate labels (the footer's "Terms of Service" link would mark
+    // the target visible while the real checkbox row is still offscreen).
     const targetVisible = await page.evaluate((needle: string) => {
       const n = needle.toLowerCase();
       const els = document.querySelectorAll('flt-semantics');
       for (const el of Array.from(els)) {
+        const role = el.getAttribute('role');
+        if (role === 'button' || role === 'link') continue;
         const t = (el.textContent ?? '').trim().toLowerCase();
         if (t === n || t.includes(n)) {
           const r = (el as HTMLElement).getBoundingClientRect();
@@ -768,8 +781,19 @@ export async function clickFlutterCheckbox(page: Page, nearbyText: string): Prom
       // then textContent. If no exact match, fall back to shortest partial.
       // If still no match, try matching by the text of child elements (Flutter
       // may nest the display name in a child flt-semantics inside a container).
+      // A checkbox's label is never a BUTTON/LINK: the auth-ui sign-up page's
+      // footer carries a "Terms of Service" link (CONFFIX-1) whose 16-char
+      // text wins the shortest-partial match over the real 48-char label
+      // "I accept the Terms of Service and Privacy Policy" and anchors the
+      // closest-switch search on the footer (no switch within 80px - the
+      // 1s retry window then expired and the whole sign-up failed).
+      const labelEl = (el: Element): boolean => {
+        const role = el.getAttribute('role');
+        return role !== 'button' && role !== 'link';
+      };
       let textEl: Element | null = null;
       for (const el of Array.from(els)) {
+        if (!labelEl(el)) continue;
         const t = (el.textContent ?? '').trim().toLowerCase();
         const a = (el.getAttribute('aria-label') ?? '').trim().toLowerCase();
         if (t === n || a === n) { textEl = el; break; }
@@ -777,6 +801,7 @@ export async function clickFlutterCheckbox(page: Page, nearbyText: string): Prom
       if (!textEl) {
         // Try child elements - the display name might be in a child node.
         for (const el of Array.from(els)) {
+          if (!labelEl(el)) continue;
           const child = el.querySelector('flt-semantics');
           if (child) {
             const ct = (child.textContent ?? '').trim().toLowerCase();
@@ -787,6 +812,7 @@ export async function clickFlutterCheckbox(page: Page, nearbyText: string): Prom
       if (!textEl) {
         let bestLen = Infinity;
         for (const el of Array.from(els)) {
+          if (!labelEl(el)) continue;
           const t = (el.textContent ?? '').trim().toLowerCase();
           const a = (el.getAttribute('aria-label') ?? '').trim().toLowerCase();
           if ((t.includes(n) || a.includes(n)) && t.length < bestLen) {
@@ -881,14 +907,19 @@ export async function clickFlutterCheckbox(page: Page, nearbyText: string): Prom
         const n = needle.toLowerCase();
         const els = document.querySelectorAll('flt-semantics');
         // Find the text element with exact match (same approach as above).
+        // Buttons/links are never checkbox labels (the footer ToS link).
         let textEl: Element | null = null;
         for (const el of Array.from(els)) {
+          const role = el.getAttribute('role');
+          if (role === 'button' || role === 'link') continue;
           const t = (el.textContent ?? '').trim().toLowerCase();
           if (t === n) { textEl = el; break; }
         }
         if (!textEl) {
           let bestLen = Infinity;
           for (const el of Array.from(els)) {
+            const role = el.getAttribute('role');
+            if (role === 'button' || role === 'link') continue;
             const t = (el.textContent ?? '').trim().toLowerCase();
             if (t.includes(n) && t.length < bestLen) { bestLen = t.length; textEl = el; }
           }
@@ -921,14 +952,19 @@ export async function clickFlutterCheckbox(page: Page, nearbyText: string): Prom
         const n = needle.toLowerCase();
         const els = document.querySelectorAll('flt-semantics');
         // Find the text element with exact match (same approach as above).
+        // Buttons/links are never checkbox labels (the footer ToS link).
         let textEl: Element | null = null;
         for (const el of Array.from(els)) {
+          const role = el.getAttribute('role');
+          if (role === 'button' || role === 'link') continue;
           const t = (el.textContent ?? '').trim().toLowerCase();
           if (t === n) { textEl = el; break; }
         }
         if (!textEl) {
           let bestLen = Infinity;
           for (const el of Array.from(els)) {
+            const role = el.getAttribute('role');
+            if (role === 'button' || role === 'link') continue;
             const t = (el.textContent ?? '').trim().toLowerCase();
             if (t.includes(n) && t.length < bestLen) { bestLen = t.length; textEl = el; }
           }
