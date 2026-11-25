@@ -34,6 +34,7 @@ import {
   signInOnAuth8,
   gotoCertWarm,
   waitForFlutterSemantics,
+  waitForAuthSignInForm,
   waitForFlutterText,
   clickFlutterButton,
   typeFlutterField,
@@ -247,9 +248,28 @@ test.describe('Bank8 Lifecycle - Admin + eBank + eTeller (bank8 apps + services 
     // "Overview") before branching. Up to 30s.
     const bootDeadline = Date.now() + 30_000;
     let booted = false;
+    let alreadyAtAuth = false;
     while (Date.now() < bootDeadline) {
       const texts = await getFlutterTexts(page);
       if (texts.some((t) => t.includes('Staff Sign In') || t.includes('Overview') || t.includes('Ledger'))) {
+        booted = true;
+        break;
+      }
+      // The app may have already bounced to the hosted Auth sign-in page
+      // instead of showing a "Staff Sign In" button. That IS booted: the boot
+      // succeeded, the app simply auto-redirected.
+      //
+      // This must be a DOM check, NOT getFlutterTexts: the hosted Auth page is
+      // server-rendered HTML with no `flt-semantics` nodes at all, so a
+      // Flutter-text probe is structurally blind to it.
+      alreadyAtAuth = await page.evaluate(() => {
+        const hasEmailField = document.querySelector(
+          'input[type="email"], input[name="email"], input[autocomplete="username"]',
+        ) !== null;
+        const bodyText = document.body?.innerText ?? '';
+        return hasEmailField || /\bSign In\b/.test(bodyText) || /\bContinue\b/.test(bodyText);
+      });
+      if (alreadyAtAuth) {
         booted = true;
         break;
       }
@@ -266,11 +286,25 @@ test.describe('Bank8 Lifecycle - Admin + eBank + eTeller (bank8 apps + services 
     const alreadySignedIn = t2.some((t) => t.includes('Overview') || t.includes('Ledger'));
     if (!alreadySignedIn) {
       logStep('[lifecycle] 1 step: not signed in - signing in via staff auth');
-      await clickFlutterButton(page, 'Staff Sign In');
-      await page.waitForTimeout(500);
-
-      await waitForFlutterSemantics(page, 2_000);
-      await waitForFlutterText(page, 'Email', 2_000);
+      // Only click the button when the app actually showed one. When the app
+      // auto-redirected to Auth during boot there is no "Staff Sign In" button
+      // on this page, and clicking a non-existent button is what previously
+      // surfaced as an opaque element timeout.
+      if (!alreadyAtAuth) {
+        await clickFlutterButton(page, 'Staff Sign In');
+        await page.waitForTimeout(500);
+        // After the click the app NAVIGATES to the hosted Auth page, so
+        // flt-semantics may already be gone. Accept either surface.
+        await page
+          .waitForSelector('flt-semantics', { timeout: 3_000 })
+          .catch(async () => {
+            await page.waitForSelector(
+              'input[type="email"], input[name="email"], input[autocomplete="username"]',
+              { timeout: 5_000 },
+            );
+          });
+      }
+      await waitForAuthSignInForm(page, 5_000);
       // Rate limiter: repeated sign-ins during e2e trips bot protection.
       clearAuthRateLimits(ben.email);
       await signInOnAuth8(page, ben.email, ben.password!);

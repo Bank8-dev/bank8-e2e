@@ -146,7 +146,15 @@ async function signUpOnAuth8(
 
 export async function signInOnAuth8(page: Page, email: string, password: string): Promise<void> {
   logStep(`[step] signInOnAuth8: signing in ${email}`);
-  await waitForFlutterSemantics(page, 2_000);
+  // The hosted Auth UI may be EITHER the Flutter auth-ui bundle (flt-semantics)
+  // OR the server-rendered HTML page. Waiting for Flutter semantics
+  // unconditionally times out on the HTML variant, which then surfaced as the
+  // opaque "Staff sign-in did not land" failure while the form was in fact
+  // fully rendered.
+  const isFlutterUi = await page
+    .waitForSelector('flt-semantics', { timeout: 2_000 })
+    .then(() => true)
+    .catch(() => false);
   // Wait for the sign-in form to be ready before typing. The auth redirect
   // chain may still be in flight when this runs - poll for the form (3
   // attempts) before failing; if the OAuth callback completes the sign-in
@@ -155,7 +163,14 @@ export async function signInOnAuth8(page: Page, email: string, password: string)
   let emailVisible = false;
   for (let attempt = 0; attempt < 3; attempt++) {
     try {
-      await waitForFlutterText(page, 'Email', 2_000);
+      if (isFlutterUi) {
+        await waitForFlutterText(page, 'Email', 2_000);
+      } else {
+        await page.waitForSelector(
+          'input[type="email"], input[name="email"], input[autocomplete="username"]',
+          { timeout: 2_000 },
+        );
+      }
       emailVisible = true;
       break;
     } catch {
@@ -185,6 +200,24 @@ export async function signInOnAuth8(page: Page, email: string, password: string)
   // field + "Sign in" (exact match so "Sign in with passkey" is never
   // clicked). Mirrors the platform suite's signInOnAuth8.
   await page.waitForTimeout(500);
+  if (!isFlutterUi) {
+    // Plain HTML variant: use real DOM interaction.
+    const emailInput = page.locator(
+      'input[type="email"], input[name="email"], input[autocomplete="username"]',
+    ).first();
+    await emailInput.fill(email);
+    await page.getByRole('button', { name: /^continue$/i }).click().catch(async () => {
+      await emailInput.press('Enter');
+    });
+    const passwordInput = page.locator('input[type="password"]').first();
+    await passwordInput.waitFor({ timeout: 5_000 });
+    await passwordInput.fill(password);
+    await page.getByRole('button', { name: /^sign in$/i }).click().catch(async () => {
+      await passwordInput.press('Enter');
+    });
+    await page.waitForTimeout(500);
+    return;
+  }
   await typeFlutterField(page, 'Email', email);
   await page.waitForTimeout(300);
   await clickFlutterButton(page, 'Continue', true);
@@ -493,12 +526,17 @@ function normDash(s: string): string {
  * CanvasKit button presses - Playwright's locator click is
  * intercepted by the canvas.
  */
-export async function clickFlutterButton(page: Page, text: string, exact: boolean = false): Promise<void> {
+export async function clickFlutterButton(page: Page, text: string, exact: boolean = false, timeout = 10_000): Promise<void> {
   // Find the flt-semantics button element containing the text, get its
   // bounding rect, and click at its center using Playwright's mouse.
   // This sends real pointer events that Flutter CanvasKit processes.
-  // Retry for up to 10 seconds - the button might not be rendered yet.
-  const deadline = Date.now() + 2_000;
+  //
+  // Retry for up to [timeout] ms - the button might not be rendered yet.
+  // NOTE: this used to be a hardcoded 2_000 while the comment promised 10s,
+  // so a cold boot (which legitimately needs 10-15s for the first Flutter
+  // paint) failed with "No Flutter element found" even though the button
+  // appeared moments later. Callers that need the old tight bound pass it.
+  const deadline = Date.now() + timeout;
   while (Date.now() < deadline) {
     const rect = await page.evaluate(({ needle, exact }: { needle: string; exact: boolean }) => {
       // Normalize typographic dashes on both needle and label so an
@@ -1027,28 +1065,40 @@ export async function typeFlutterField(page: Page, label: string, value: string)
   //
   // IMPORTANT: Flutter CanvasKit may lazy-build semantics nodes. The textbox
   // may not be in the accessibility tree immediately after page navigation.
-  // We retry all approaches with short waits for up to 10 seconds.
-
-  const deadline = Date.now() + 2_000;
+  // We retry all approaches with short waits.
+  //
+  // NOTE: this budget was 2_000 while the doc above promised 10s. The
+  // identifier-first step 2 (password) renders after an XHR round trip, so 2s
+  // raced the render and dropped the password - the form then reported
+  // "Email and password are required" with an empty field.
+  const deadline = Date.now() + 10_000;
   let lastError: Error | null = null;
 
   // Helper: focus a target, clear any existing value via Ctrl+A + Delete
   // (real keyboard events, picked up by Flutter), then insert the value
   // in one shot via `insertText` (a single `input` event - paste-like).
-  const fillFocused = async (): Promise<void> => {
-    for (let attempt = 0; attempt < 3; attempt++) {
+  //
+  // Returns TRUE only when the value is confirmed present. The old version
+  // silently returned after 3 unverified attempts, so a password that never
+  // landed looked like success and the caller then submitted an empty field
+  // ("Email and password are required" with a filled email).
+  const fillFocused = async (): Promise<boolean> => {
+    for (let attempt = 0; attempt < 6; attempt++) {
       await page.keyboard.press('Control+A');
       await page.keyboard.press('Delete');
       await page.keyboard.insertText(value);
-      await page.waitForTimeout(100);
+      await page.waitForTimeout(150);
       // Verify the value landed - Flutter's IME can race insertText and
       // drop/duplicate the last character (observed: '...@a.coe' → 401).
       const current = await page.evaluate(() => {
         const el = document.activeElement as HTMLInputElement | null;
         return el && 'value' in el ? el.value : null;
       });
-      if (current === null || current === value) return;
+      if (current === value) return true;
+      // `null` means focus was lost - re-focusing is the caller's job, so keep
+      // trying here in case the host input is merely still materialising.
     }
+    return false;
   };
 
   while (Date.now() < deadline) {
@@ -1062,8 +1112,8 @@ export async function typeFlutterField(page: Page, label: string, value: string)
       if (aria && aria.toLowerCase() === label.toLowerCase()) {
         await inputs.nth(i).click();
         await page.waitForTimeout(50);
-        await fillFocused();
-        return;
+        if (await fillFocused()) return;
+        continue;
       }
     }
 
@@ -1076,8 +1126,8 @@ export async function typeFlutterField(page: Page, label: string, value: string)
       if (await textbox.count() > 0) {
         await textbox.first().click({ force: true });
         await page.waitForTimeout(200); // Wait for Flutter to create the <input>
-        await fillFocused();
-        return;
+        if (await fillFocused()) return;
+        // Fall through and retry: the host input may not have materialised yet.
       }
     } catch (e) {
       lastError = e as Error;
@@ -1098,8 +1148,9 @@ export async function typeFlutterField(page: Page, label: string, value: string)
       return false;
     }, label.toLowerCase());
     if (found) {
-      await fillFocused();
-      return;
+      if (await fillFocused()) return;
+      // The flt-semantics textbox exists but its host input did not accept the
+      // value - retry the whole loop rather than reporting a silent success.
     }
 
     // None of the approaches found the textbox yet - wait briefly and retry.
@@ -1513,3 +1564,26 @@ export {
   staffAuthURL,
   orgDomain,
 } from './testdata.js';
+
+/**
+ * Wait until the Auth sign-in form is interactive, on EITHER surface.
+ *
+ * The hosted Auth UI ships in two shapes: the Flutter auth-ui bundle
+ * (`flt-semantics`) and a server-rendered HTML page (`input[type=email]`).
+ * A Flutter-only wait is structurally blind to the HTML shape, which is what
+ * produced the opaque "Staff sign-in did not land" failures.
+ */
+export async function waitForAuthSignInForm(page: Page, timeout = 5_000): Promise<void> {
+  const deadline = Date.now() + timeout;
+  while (Date.now() < deadline) {
+    const ready = await page.evaluate(() => {
+      if (document.querySelector('flt-semantics')) return true;
+      return document.querySelector(
+        'input[type="email"], input[name="email"], input[autocomplete="username"]',
+      ) !== null;
+    });
+    if (ready) return;
+    await page.waitForTimeout(200);
+  }
+  throw new Error(`Auth sign-in form never became interactive on ${page.url()}`);
+}

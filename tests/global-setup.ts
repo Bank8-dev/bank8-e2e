@@ -45,12 +45,39 @@ export async function globalSetup(): Promise<void> {
   assertCliOk(await runCli(['whoami']), 'globalSetup: CLI whoami after sign-in');
 
   // ── 2. iBank org + envs ─────────────────────────────────────────────
-  const org = await cliDo('sys', 'org', 'create', {
+  // Org create is IDEMPOTENT-ON-CONFLICT. `RUN_ID` is `Date.now().slice(-8)`,
+  // so two runs inside the same ~100 s window derive the SAME slug and domain;
+  // the second one used to die with HTTP 409 and abort globalSetup before a
+  // single test ran. A retry of a failed run is exactly that case. Reusing the
+  // existing org is correct: the run-scoped name already encodes the window it
+  // belongs to, so a collision means "this window already provisioned".
+  let org = await cliDo('sys', 'org', 'create', {
     display_name: bill.orgName!,
     name: bill.orgSlug!,
     slug: bill.orgSlug!,
     domain: bill.domain!,
   });
+  if (org.exitCode !== 0 && /HTTP 409|already exists|Conflict/i.test(org.stderr + org.stdout)) {
+    logStep(
+      `[globalSetup] org ${bill.orgSlug} already exists (same run window) - reusing`,
+    );
+    const listed = await runCli(['call', 'sys', 'GET', '/v1/o?limit=200']);
+    const items =
+      (listed.json as Array<{ id: string; slug?: string }> | undefined) ?? [];
+    const existing = items.find((o) => o.slug === bill.orgSlug);
+    if (!existing) {
+      throw new Error(
+        `globalSetup: org ${bill.orgSlug} reported a conflict but is not in the ` +
+        `org list - cannot continue`,
+      );
+    }
+    // Synthesise the shape the code below expects from the create response.
+    org = {
+      ...org,
+      exitCode: 0,
+      json: existing,
+    } as typeof org;
+  }
   assertCliOk(org, 'globalSetup: create iBank org');
   const ibankOrgId = (org.json as { id: string }).id;
   const ibankOrgDomain =
