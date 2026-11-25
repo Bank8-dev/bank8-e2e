@@ -152,6 +152,17 @@ try {
 // ── 4. Artefacts (always) ───────────────────────────────────────────────
 step('Capturing artefacts');
 try {
+  // Bring the app to the foreground first: after `flutter test` returns, the
+  // launcher is usually on screen, so a bare screencap captures the wallpaper
+  // and tells you nothing. This is the artefact a reviewer actually needs.
+  try {
+    sh(ADB, ['-s', device, 'shell', 'am', 'start', '-n',
+      'com.bank8.ebank/.MainActivity']);
+    // Give the engine a moment to present the first frame.
+    await new Promise((r) => setTimeout(r, 4000));
+  } catch {
+    log('  ⚠️  could not foreground the app; the screenshot may show the launcher');
+  }
   const png = execFileSync(ADB, ['-s', device, 'exec-out', 'screencap', '-p'], {
     maxBuffer: 32 * 1024 * 1024,
   });
