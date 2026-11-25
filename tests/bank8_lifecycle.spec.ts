@@ -147,9 +147,20 @@ const PAUSE_ON_STEP = process.env.PAUSE_ON_STEP ?? '';
  * before each staff sign-in.
  */
 function clearAuthRateLimits(email: string): void {
+  // Scoped to THIS persona + the shared loopback IP window. The previous
+  // version swept every `auth:rate:*` key on the fleet, which also reset a
+  // concurrently running conformance battery's cert-user counters (same
+  // auth service, same keys, no per-run prefix - an unscoped sweep cannot
+  // tell owners apart).
+  const keys = [
+    `auth:rate:email:${email.trim().toLowerCase()}`,
+    'auth:rate:ip:127.0.0.1',
+    'auth:rate:ip:172.18.0.1',
+    'auth:rate:ip:unknown',
+  ];
   try {
     execSync(
-      `valkey-cli -n 1 --scan --pattern 'auth:rate:*' | xargs -r valkey-cli -n 1 del`,
+      `valkey-cli -n 1 DEL ${keys.map(k => `'${k}'`).join(' ')}`,
       { stdio: 'pipe', timeout: 2_000 },
     );
   } catch {
