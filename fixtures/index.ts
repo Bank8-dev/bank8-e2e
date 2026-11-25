@@ -20,3 +20,4 @@ export * from './harness.js';
 export * from './log.js';
 export * from './cli.js';
 export { APIClient } from './apiclient.js';
+export * from './target.js';

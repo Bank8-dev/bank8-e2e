@@ -134,7 +134,22 @@ export function emailWithRunID(base: string): string {
 //
 // Path anchors are absolute (cwd-independent, RS §4.5.1-1): the sibling
 // platform group's cli checkout first, then a system-installed CLI.
-export const TREE_ROOT = '/home/hamid/dev/sentin8.new';
+//
+// DERIVED, not hardcoded: this file used to pin
+// `/home/hamid/dev/sentin8.new`, a different checkout on one developer's
+// machine. On any other tree that path does not exist, so the very first CLI
+// spawn ENOENTed and the failure surfaced much later as an opaque sign-up or
+// TLS error - the suite looked broken when only the anchor was wrong.
+//
+// Resolution: an explicit `SENTIN8_REPO_ROOT` wins; otherwise walk up from this
+// file - fixtures/ -> bank8-e2e/ -> bank8/ (the vertical group) -> tree root -
+// which is the same rule `fixtures/env.ts` already uses.
+export const TREE_ROOT = (() => {
+  const override = process.env.SENTIN8_REPO_ROOT?.trim();
+  if (override) return override;
+  // fixtures/testdata.ts -> fixtures/ -> bank8-e2e/ -> bank8/ -> tree root.
+  return resolve(import.meta.dirname ?? '.', '..', '..', '..');
+})();
 
 /**
  * Path to the built sentin8-cli binary.

@@ -154,3 +154,44 @@ browser interactions; any console error or HTTP failure fails the test.
 
 - **Dash/platform flows** - live in the platform e2e repo (`sentin8-e2e`).
 - **Flutter unit/widget tests** - in the app repos themselves.
+
+## Choosing the platform under test
+
+The same eBank instance serves both clients, so the platform is a run property:
+
+| Target | Command | Driver |
+|---|---|---|
+| `web` (default) | `make test-web` | Playwright + Chromium |
+| `android` | `make test-android` | `flutter test integration_test` on an attached device |
+| both | `make test` | web first, then android |
+
+`E2E_TARGET` selects the leg (`web` | `android`). Two runners exist because
+Playwright cannot see inside a native Flutter app: there is no DOM, no
+accessibility tree it can query, and no way to start an Activity. The android leg
+therefore asserts with Flutter widget matchers inside the app.
+
+The android leg needs, in addition to a booted device:
+
+- `E2E_ENV_SLUG` and `E2E_ORG_DOMAIN` — the instance host is derived as
+  `bank8-ebank.{env_slug}.{org_domain}`.
+- `ANDROID_DEVICE_ID` when more than one device is attached.
+- `E2E_EXPECT_REACHABLE=1` to REQUIRE a live bootstrap. Without it the test
+  accepts "failed closed" as a valid outcome and says which happened, so a green
+  run against an unreachable backend is never ambiguous.
+
+### Known environment limitation: the emulator cannot resolve the fleet domain
+
+Fleet hostnames resolve on the host through mDNS (`nsswitch` → `mdns4_minimal` →
+avahi), not through a DNS server. An Android emulator cannot use that path, and
+the Play Store system image is not rootable, so `/etc/hosts` cannot be edited
+either. Consequences:
+
+- the device reaches the host (`10.0.2.2` pings) but cannot resolve
+  `*.sentin8.dev`;
+- the TLS proxy is L4 and routes on SNI, so an IP-based URL does not work either;
+- the app therefore enrolls, attempts bootstrap, and **fails closed** — which is
+  the correct product behaviour and what the android leg asserts.
+
+To get a fully green reachable run you need one of: a rootable (non-Play-Store)
+system image with a hosts entry, a DNS server the emulator can query, or a host
+reverse-proxy that preserves SNI.

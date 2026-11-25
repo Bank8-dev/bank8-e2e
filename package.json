@@ -15,7 +15,9 @@
     "test:suite6": "node --use-openssl-ca node_modules/@playwright/test/cli.js test tests/protocol/suite6_tenant_resolution_enforcement.spec.ts",
     "test:suite8": "node --use-openssl-ca node_modules/@playwright/test/cli.js test tests/protocol/suite8_token_exchange.spec.ts",
     "install-browsers": "playwright install chromium",
-    "lint": "tsc --noEmit"
+    "lint": "tsc --noEmit",
+    "test:web": "node --use-openssl-ca node_modules/@playwright/test/cli.js test --max-failures=1 tests/bank8_lifecycle.spec.ts",
+    "test:android": "node scripts/android-e2e.mjs"
   },
   "devDependencies": {
     "@playwright/test": "^1.49.0",

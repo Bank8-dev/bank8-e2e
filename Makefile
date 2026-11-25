@@ -26,7 +26,7 @@ ifneq ($(CLI_BIN),)
 CLI_EXPORT := SENTIN8_CLI_BIN="$(CLI_BIN)"
 endif
 
-.PHONY: help install lint test test-lifecycle test-protocol report clean
+.PHONY: help install lint test test-web test-android test-lifecycle test-protocol report clean
 
 help: ## Show this help
 	@echo "bank8-e2e (Playwright e2e)"
@@ -39,8 +39,15 @@ install: ## pnpm install (frozen lockfile) + Chromium download
 lint: ## tsc --noEmit type check
 	@pnpm run lint
 
-test: ## UI lifecycle suite, headed, failfast (server up first — make start in bank8-ebank)
-	@$(CLI_EXPORT) pnpm run test
+test: ## Both legs: web (Playwright) then android (flutter integration_test)
+	@$(MAKE) --no-print-directory test-web
+	@$(MAKE) --no-print-directory test-android
+
+test-web: ## Web leg only — Playwright + Chromium (E2E_TARGET=web)
+	@E2E_TARGET=web $(CLI_EXPORT) pnpm run test:web
+
+test-android: ## Android leg only — flutter integration_test on an attached device
+	@E2E_TARGET=android $(CLI_EXPORT) pnpm run test:android
 
 test-lifecycle: ## Lifecycle spec only
 	@$(CLI_EXPORT) pnpm run test:lifecycle
