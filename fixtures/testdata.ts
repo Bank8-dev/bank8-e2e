@@ -15,9 +15,24 @@
 
 import { existsSync } from 'node:fs';
 import { join, resolve } from 'node:path';
+import { platformDomain } from './env.js';
 
-/** Sentin8 platform root domain (defaults to `local.sentin8.dev`). */
-export const DOMAIN = process.env.SENTIN8_DOMAIN ?? 'local.sentin8.dev';
+/**
+ * Sentin8 platform root domain.
+ *
+ * Read through `fixtures/env.ts`, which loads the tree-root `.env` the
+ * FLEET is booted from before this module is evaluated (ESM hoists and
+ * runs dependency module bodies first, so `platformDomain()` here sees
+ * the loaded value). This used to read `process.env.SENTIN8_DOMAIN`
+ * directly with a `'local.sentin8.dev'` fallback: the loader never ran on
+ * this path, so `process.env` was empty and EVERY derived URL silently
+ * pointed at the compiled default instead of the operator's domain -
+ * the suite then failed by DNS/timeout against a fleet that was up and
+ * healthy under a different name. There is deliberately no fallback
+ * literal here (the platform suite's DESIGN §4 invariant 5): a missing
+ * domain must fail at configuration load, never mid-test.
+ */
+export const DOMAIN = platformDomain();
 
 // ── Tenant org/ev URL helpers ─────────────────────────────────────────
 // The suite operates on the iBank tenant org with its prod env (the
@@ -29,19 +44,22 @@ export const DOMAIN = process.env.SENTIN8_DOMAIN ?? 'local.sentin8.dev';
 //   tenant auth      https://auth.{org-domain}
 //   staff auth env   https://auth.{env-slug}.{org-domain}
 //
-// org-domain defaults to {org-slug}.{SENTIN8_DOMAIN} but an org can set
-// a custom_domain (the personas below declare theirs - e.g.
-// ibank8NNNN.local); helpers take the resolved org domain as an arg.
+// org-domain defaults to {org-slug}.{SENTIN8_DOMAIN} (`sentin8::config::
+// org_domain`) but an org can set a custom_domain (the personas below
+// declare the platform-default shape explicitly); helpers take the
+// resolved org domain as an arg.
 
-/** The two tenant org custom domains the protocol suites probe
- *  (suites 4/6) - global-setup creates the orgs with these
- *  custom_domain values.
- *  DNS: the resolver's wildcard covers *.local.sentin8.dev ONLY
- *  (SENTIN8_ACME_LOCAL_DOMAINS = the platform DOMAIN itself), so the tenant
- *  zones are derived as `{tenant}.${DOMAIN}` - {tenant} replaces the
- *  org-slug label under the SAME wildcard zone (`ibank.local.sentin8.dev`
- *  sits beside `ibank02368518.local.sentin8.dev`). Never bare `.local`
- *  names (those resolve nowhere and Acme would relay them upstream). */
+/** The stable tenant org domain the protocol suites probe (suites 4/6) -
+ *  global-setup creates the org with this custom_domain value.
+ *  Shape: `{org_slug}.{SENTIN8_DOMAIN}` - the platform's own org_domain
+ *  default (sentin8-sdk/core/config: `org_domain()` formats
+ *  `{org_slug}.{sentin8_domain}`), which is exactly what the live
+ *  `sys.organizations.domain` rows carry. There is NO `.local` label:
+ *  the resolver's wildcard covers the platform zone `*.{DOMAIN}`, so
+ *  `ibank.{DOMAIN}` is the tenant zone. A literal `ibank.local` is not a
+ *  domain at all - `sys org create` stores the `custom_domain` field
+ *  VERBATIM (it does not append the platform domain), so passing one
+ *  produces an org whose hostnames resolve nowhere. */
 export const TENANT_DOMAINS = {
   ibank: `ibank.${DOMAIN}`,
 } as const;
@@ -168,7 +186,7 @@ export const Personas: Record<'dan' | 'bill' | 'alice' | 'bob' | 'carol' | 'ben'
     lastName: 'Developer',
     email: emailWithRunID('dan'),
     password: 'Test1234!',
-    domain: `${withRunID('iapp')}.local.${DOMAIN}`,
+    domain: `${withRunID('iapp')}.${DOMAIN}`,
     role: 'App8 catalog admin',
     orgName: withRunID('TestOrg'),
     orgSlug: withRunID('testorg'),
@@ -178,7 +196,7 @@ export const Personas: Record<'dan' | 'bill' | 'alice' | 'bob' | 'carol' | 'ben'
     lastName: 'Banker',
     email: emailWithRunID('bill'),
     password: 'Test1234!',
-    domain: `${withRunID('ibank')}.local.${DOMAIN}`,
+    domain: `${withRunID('ibank')}.${DOMAIN}`,
     role: 'Sentin8 org admin',
     orgName: withRunID('iBank'),
     orgSlug: withRunID('ibank'),

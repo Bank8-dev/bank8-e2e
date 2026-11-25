@@ -102,7 +102,7 @@ export async function globalSetup(): Promise<void> {
 
   // ── 2b. STABLE protocol-fixture org (suites 4/6/8) ──────────────────
   // The protocol suites probe the STABLE tenant hostnames derived from
-  // TENANT_DOMAINS.ibank (auth.staff.ibank.local.{DOMAIN} etc.), not the
+  // TENANT_DOMAINS.ibank (auth.staff.ibank.{DOMAIN} etc.), not the
   // run-scoped org. The fixture org is idempotent: reuse when it exists
   // (org create rejects a duplicate slug/domain), otherwise create it
   // with its staff + prod envs. Run-scoped personas stay run-isolated;
@@ -111,8 +111,10 @@ export async function globalSetup(): Promise<void> {
   const fixtureOrgDomain = TENANT_DOMAINS.ibank;
   const fixtureSlug = 'ibank';
   {
-    // The stable org domain rides the fixture TENANT_DOMAINS value; the
-    // declared domain is the host-style form (sys appends SENTIN8_DOMAIN).
+    // The declared domain is the fully-qualified org domain: `sys org
+    // create` stores `custom_domain` VERBATIM and does NOT append
+    // SENTIN8_DOMAIN, so a short `ibank.local` would be persisted as-is
+    // and every host under it would resolve nowhere.
     const existing = await runCli([
       'call', 'sys', 'GET', '/v1/o?limit=200',
     ]).catch(() => undefined);
@@ -125,7 +127,7 @@ export async function globalSetup(): Promise<void> {
         display_name: 'iBank',
         name: fixtureSlug,
         slug: fixtureSlug,
-        domain: 'ibank.local',
+        domain: fixtureOrgDomain,
       });
       if (created.exitCode === 0) {
         const payload = created.json as { json?: { id?: string }, id?: string } | undefined;

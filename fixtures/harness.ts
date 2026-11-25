@@ -199,7 +199,7 @@ export async function signInOnAuth8(page: Page, email: string, password: string)
   await page.waitForTimeout(500);
 }
 
-/** Sign up a customer through an app (e.g. eBank at www.ibank.local). */
+/** Sign up a customer through an app (e.g. eBank at www.ibank.<domain>). */
 export async function signUpViaApp(
   page: Page,
   context: BrowserContext,
@@ -445,9 +445,9 @@ export async function signInToTenantAuth8(
     await page.waitForTimeout(500);
   }
   // The browser is now on the app frontend URL (e.g.
-  // prod.ibank.ebank.app8.local.sentin8.dev) with the BFF8 session cookie set.
+  // prod.ibank.ebank.app8.${DOMAIN}) with the BFF8 session cookie set.
   // Wait for the Flutter app to boot. We do NOT navigate back to the
-  // original appURL because it may be a custom domain (e.g. www.ibank.local)
+  // original appURL because it may be a custom domain (e.g. www.ibank.example)
   // that doesn't share the BFF8 session cookie's registrable domain.
   await waitForFlutterSemantics(page, 2_000);
   // Wait for the app to establish the BFF8 session and transition from
