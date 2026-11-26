@@ -1088,15 +1088,25 @@ export async function typeFlutterField(page: Page, label: string, value: string)
       await page.keyboard.press('Delete');
       await page.keyboard.insertText(value);
       await page.waitForTimeout(150);
-      // Verify the value landed - Flutter's IME can race insertText and
-      // drop/duplicate the last character (observed: '...@a.coe' → 401).
-      const current = await page.evaluate(() => {
-        const el = document.activeElement as HTMLInputElement | null;
-        return el && 'value' in el ? el.value : null;
-      });
-      if (current === value) return true;
-      // `null` means focus was lost - re-focusing is the caller's job, so keep
-      // trying here in case the host input is merely still materialising.
+      // Verify the value landed.
+      //
+      // CRITICAL: do NOT trust `document.activeElement` alone. The auth-ui
+      // renders HIDDEN `<input type="submit">` elements next to the real
+      // fields (step 2 has 4 inputs: submit, text(email), submit, password),
+      // so activeElement can point at a submit element whose value is always
+      // "". The value then reads as "" even though the fill succeeded - which
+      // is exactly how a filled email was reported as an empty password.
+      //
+      // Success = the focused element holds the value, OR any input does.
+      const landed = await page.evaluate((expected: string) => {
+        const focused = document.activeElement as HTMLInputElement | null;
+        if (focused && 'value' in focused && focused.value === expected) return true;
+        return Array.from(document.querySelectorAll('input, textarea')).some((el) => {
+          const i = el as HTMLInputElement;
+          return i.value === expected;
+        });
+      }, value);
+      if (landed) return true;
     }
     return false;
   };
@@ -1104,14 +1114,37 @@ export async function typeFlutterField(page: Page, label: string, value: string)
   while (Date.now() < deadline) {
     lastError = null;
 
-    // Approach 1: Try regular input/textarea elements.
+    // Approach 1: a real <input>/<textarea> whose aria-label matches.
+    //
+    // Matching is SUBSET-based on purpose. Auth forms label fields exactly
+    // ("Email"), but app forms often carry a composite accessible name - a
+    // create-product form exposes "Product Name" as
+    // "Product Name * required" or with placeholder text appended. An
+    // equality-only match then reported "No Flutter text field found with
+    // label 'Product Name'" against a field that was plainly on screen.
+    //
+    // Click with the MOUSE at the element's centre rather than
+    // `locator.click()`: Flutter positions its editing host absolutely and
+    // Playwright's actionability checks intermittently reject it ("element is
+    // not visible"), which is why a fill could silently never happen. A raw
+    // mouse click at the rect centre is what a user does and always lands.
     const inputs = page.locator('input, textarea');
     const count = await inputs.count();
     for (let i = 0; i < count; i++) {
       const aria = await inputs.nth(i).getAttribute('aria-label');
-      if (aria && aria.toLowerCase() === label.toLowerCase()) {
-        await inputs.nth(i).click();
-        await page.waitForTimeout(50);
+      const ariaLc = (aria ?? '').toLowerCase();
+      const type = (await inputs.nth(i).getAttribute('type')) ?? 'text';
+      // Never target hidden submit/button inputs - they carry no value and
+      // would steal the focus the real field needs.
+      if (type === 'submit' || type === 'button' || type === 'hidden') continue;
+      if (aria && (ariaLc === label.toLowerCase() || ariaLc.includes(label.toLowerCase()))) {
+        const box = await inputs.nth(i).boundingBox();
+        if (box && box.width > 0 && box.height > 0) {
+          await page.mouse.click(box.x + box.width / 2, box.y + box.height / 2);
+        } else {
+          await inputs.nth(i).click({ force: true }).catch(() => {});
+        }
+        await page.waitForTimeout(100);
         if (await fillFocused()) return;
         continue;
       }
